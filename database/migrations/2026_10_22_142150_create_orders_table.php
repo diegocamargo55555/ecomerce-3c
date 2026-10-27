@@ -13,8 +13,14 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->foreingID("address_id")->constrained();
+            $table->foreignId("address_id")->constrained();
+            $table->foreignId("users_id")->constrained();
+            $table->enum('status', ['pendente', 'pago', 'cancelado'])->default('pendente');
+            $table->decimal('subtotal',10, 2);
+            $table->decimal('total',10, 2);
+            $table->decimal('shipping_cost',10, 2);
             $table->timestamps();
+            
         });
     }
 
