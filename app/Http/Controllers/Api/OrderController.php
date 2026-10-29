@@ -4,15 +4,20 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\OrderService;
 use Illuminate\Http\Request;
 
 class OrderController extends Controller
-{    /**
-     * Display a listing of the resource.
-     */
+{
+    public function __construct(
+        private OrderService $orderService
+    ) {}
+    
+    
     public function index()
     {
-        return response()->json(Order::all());
+        
+        return response()->json($this->orderService->listAll());
 
     }
 
@@ -21,8 +26,9 @@ class OrderController extends Controller
      */
     public function store(Request $request)
     {
-        $order = Order::create($request->all());
+        $order = $this->orderService->create($request->all());
         return response()->json($order, 201);
+
     }
 
     /**
@@ -30,7 +36,9 @@ class OrderController extends Controller
      */
     public function show(string $id)
     {
-        return response()->json(Order::findOrFail($id));        
+                
+        return response()->json($this->OrderService->findById($id));
+
     }
 
     /**

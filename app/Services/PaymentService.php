@@ -25,13 +25,13 @@ class PaymentService
     public function update(int $id, array $data): Payment
     {
         $Payment = Payment::findOrFail($id);
-        $user->update($data);
+        $payment->update($data);
 
-        return $user;
+        return $payment;
     }
 
     public function delete(int $id): void
     {
-        User::findOrFail($id)->delete();
+        Payment::findOrFail($id)->delete();
     }
 }

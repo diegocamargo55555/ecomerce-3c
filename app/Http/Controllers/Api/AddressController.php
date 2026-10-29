@@ -4,17 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Address;
+use App\Services\AddressService;
 use Illuminate\Http\Request;
 
 class AddressController extends Controller
 {
+    public function __construct(
+        private AddressService $addressService
+    ) {}
+
         /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        return response()->json(Address::all());
-
+        return response()->json($this->addressService->listAll());
     }
 
     /**
@@ -22,7 +26,7 @@ class AddressController extends Controller
      */
     public function store(Request $request)
     {
-        $address = Address::create($request->all());
+        $address = $this->addressService->create($request->all());
         return response()->json($address, 201);
     }
 
@@ -31,7 +35,7 @@ class AddressController extends Controller
      */
     public function show(string $id)
     {
-        return response()->json(Address::findOrFail($id));        
+        return response()->json($this->addressService->findById($id));
     }
 
     /**
@@ -39,11 +43,8 @@ class AddressController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $address = Address::findOrFail($id);
-        $address->update($request->all());
-
+        $genre = $this->genreService->update($id, $request->all());
         return response()->json($address);
-
     }
 
     /**
@@ -51,7 +52,7 @@ class AddressController extends Controller
      */
     public function destroy(string $id)
     {
-        Address::findOrFail($id)->delete();
+        $this->genreService->delete($id);
         return response()->noContent();
     }
 }
