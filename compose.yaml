@@ -6,8 +6,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: ecomerce
-      MYSQL_USER: bookshelf
-      MYSQL_PASSWORD: bookshelf
+      MYSQL_USER: ecomerce
+      MYSQL_PASSWORD: lolseek001
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -26,6 +26,7 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+      - /app/vendor
     healthcheck:
       test: [ "CMD", "curl", "-fsS", "http://127.0.0.1:8000/up" ]
       interval: 5s
