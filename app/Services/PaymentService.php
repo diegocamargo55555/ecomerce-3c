@@ -24,7 +24,7 @@ class PaymentService
 
     public function update(int $id, array $data): Payment
     {
-        $Payment = Payment::findOrFail($id);
+        $payment = Payment::findOrFail($id);
         $payment->update($data);
 
         return $payment;

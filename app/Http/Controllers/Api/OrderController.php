@@ -46,9 +46,7 @@ class OrderController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $order = Order::findOrFail($id);
-        $order->update($request->all());
-
+        $order = $this->orderService->update($id, $request->all());
         return response()->json($order);
 
     }
@@ -58,7 +56,7 @@ class OrderController extends Controller
      */
     public function destroy(string $id)
     {
-        Order::findOrFail($id)->delete();
+        $this->orderService->delete($id);
         return response()->noContent();
     }
 }

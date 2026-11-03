@@ -3,18 +3,21 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Payment;
+use App\Services\PaymentService;
 use Illuminate\Http\Request;
 
 class PaymentController extends Controller
 {
+    public function __construct(
+        private PaymentService $paymentService
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        return response()->json(Payment::all());
-
+        return response()->json($this->paymentService->listAll());
     }
 
     /**
@@ -22,7 +25,7 @@ class PaymentController extends Controller
      */
     public function store(Request $request)
     {
-        $payment = Payment::create($request->all());
+        $payment = $this->paymentService->create($request->all());
         return response()->json($payment, 201);
     }
 
@@ -31,7 +34,7 @@ class PaymentController extends Controller
      */
     public function show(string $id)
     {
-        return response()->json(Payment::findOrFail($id));        
+        return response()->json($this->paymentService->findById($id));
     }
 
     /**
@@ -39,11 +42,8 @@ class PaymentController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $payment = Payment::findOrFail($id);
-        $payment->update($request->all());
-
+        $payment = $this->paymentService->update($id, $request->all());
         return response()->json($payment);
-
     }
 
     /**
@@ -51,7 +51,7 @@ class PaymentController extends Controller
      */
     public function destroy(string $id)
     {
-        Payment::findOrFail($id)->delete();
+        $this->paymentService->delete($id);
         return response()->noContent();
     }
 }

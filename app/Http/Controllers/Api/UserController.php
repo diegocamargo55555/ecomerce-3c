@@ -3,13 +3,21 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 
 class UserController extends Controller
-{    public function index()
+{
+    public function __construct(
+        private UserService $userService
+    ) {}
+
+    /**
+     * Display a listing of the resource.
+     */
+    public function index()
     {
-        return response()->json(User::all());
+        return response()->json($this->userService->listAll());
     }
 
     /**
@@ -17,7 +25,7 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        $user = User::create($request->all());
+        $user = $this->userService->create($request->all());
         return response()->json($user, 201);
     }
 
@@ -26,7 +34,7 @@ class UserController extends Controller
      */
     public function show(string $id)
     {
-        return response()->json(User::findOrFail($id));        
+        return response()->json($this->userService->findById($id));
     }
 
     /**
@@ -34,11 +42,8 @@ class UserController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $user = User::findOrFail($id);
-        $user->update($request->all());
-
+        $user = $this->userService->update($id, $request->all());
         return response()->json($user);
-
     }
 
     /**
@@ -46,8 +51,7 @@ class UserController extends Controller
      */
     public function destroy(string $id)
     {
-        User::findOrFail($id)->delete();
+        $this->userService->delete($id);
         return response()->noContent();
     }
-
 }
