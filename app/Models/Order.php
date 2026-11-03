@@ -20,15 +20,6 @@ class Order extends Model
         'shipping_cost',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'subtotal' => 'decimal:2',
-            'total' => 'decimal:2',
-            'shipping_cost' => 'decimal:2',
-        ];
-    }
-
     public function address(): BelongsTo
     {
         return $this->belongsTo(Address::class);

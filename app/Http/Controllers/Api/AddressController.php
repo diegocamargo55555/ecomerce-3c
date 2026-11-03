@@ -55,3 +55,38 @@ class AddressController extends Controller
         return response()->noContent();
     }
 }
+
+
+
+
+/*
+php artisan make:request StoreAddressRequest
+php artisan make:request UpdateAddressRequest
+
+php artisan make:request StoreCartRequest
+php artisan make:request UpdateCartRequest
+
+php artisan make:request StoreCartItemRequest
+php artisan make:request UpdateCartItemRequest
+
+php artisan make:request StoreCategoryRequest
+php artisan make:request UpdateCategoryRequest
+
+php artisan make:request StoreOrderRequest
+php artisan make:request UpdateOrderRequest
+
+php artisan make:request StoreOrderItemRequest
+php artisan make:request UpdateOrderItemRequest
+
+php artisan make:request StorePaymentRequest
+php artisan make:request UpdatePaymentRequest
+
+
+php artisan make:request StoreProductRequest
+php artisan make:request UpdateProductRequest
+
+
+php artisan make:request StoreUserRequest
+php artisan make:request UpdateUserRequest
+
+*/
