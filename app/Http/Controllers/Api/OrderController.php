@@ -37,7 +37,7 @@ class OrderController extends Controller
     public function show(string $id)
     {
                 
-        return response()->json($this->OrderService->findById($id));
+        return response()->json($this->orderService->findById($id));
 
     }
 

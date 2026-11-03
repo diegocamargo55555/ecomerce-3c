@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Address;
 use App\Services\AddressService;
 use Illuminate\Http\Request;
 
@@ -43,7 +42,7 @@ class AddressController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $genre = $this->genreService->update($id, $request->all());
+        $address = $this->addressService->update($id, $request->all());
         return response()->json($address);
     }
 
@@ -52,7 +51,7 @@ class AddressController extends Controller
      */
     public function destroy(string $id)
     {
-        $this->genreService->delete($id);
+        $this->addressService->delete($id);
         return response()->noContent();
     }
 }
