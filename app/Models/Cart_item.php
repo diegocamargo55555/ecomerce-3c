@@ -3,27 +3,30 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Cart_item extends Model
 {
-    
-
     protected $fillable = [
         'cart_id',
+        'product_id',
         'quantity',
     ];
 
-    public function cart(): BelongsTo
+    protected function casts(): array
     {
-        return $this->BelongsTo(Cart::class);
+        return [
+            'quantity' => 'integer',
+        ];
     }
 
+    public function cart(): BelongsTo
+    {
+        return $this->belongsTo(Cart::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
 }
-
-/*
-            $table->id();
-            $table->foreignId('cart_id')->constrained();
-            $table->integer('quantity');
-            $table->timestamps();
-
-*/

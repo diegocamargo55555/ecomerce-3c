@@ -2,16 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Address extends Model
 {
-        protected $fillable = [
+    protected $fillable = [
         'users_id',
         'recipient_name',
-        'description',
         'zip_code',
         'street',
         'number',
@@ -23,8 +22,11 @@ class Address extends Model
 
     public function user(): BelongsTo
     {
-        return $this->BelongsTo(User::class);
+        return $this->belongsTo(User::class, 'users_id');
     }
 
-
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
 }

@@ -2,12 +2,10 @@
 
 namespace App\Models;
 
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
-
 
 class Order extends Model
 {
@@ -21,19 +19,33 @@ class Order extends Model
         'total',
         'shipping_cost',
     ];
-    
+
+    protected function casts(): array
+    {
+        return [
+            'subtotal' => 'decimal:2',
+            'total' => 'decimal:2',
+            'shipping_cost' => 'decimal:2',
+        ];
+    }
+
     public function address(): BelongsTo
     {
-        return $this->BelongsTo(Address::class);
+        return $this->belongsTo(Address::class);
     }
 
     public function user(): BelongsTo
     {
-        return $this->BelongsTo(User::class);
+        return $this->belongsTo(User::class, 'users_id');
     }
-    
-    
 
+    public function items(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
 
-    
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
 }
