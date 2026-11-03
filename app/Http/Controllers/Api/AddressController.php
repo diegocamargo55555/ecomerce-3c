@@ -6,6 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Services\AddressService;
 use Illuminate\Http\Request;
 
+use App\Http\Requests\StoreAddressRequest;
+use App\Http\Requests\UpdateAddressRequest;
+use App\Http\Resources\AddressResource;
+
+
 class AddressController extends Controller
 {
     public function __construct(
@@ -17,7 +22,8 @@ class AddressController extends Controller
      */
     public function index()
     {
-        return response()->json($this->addressService->listAll());
+        return addressResource::collection($this->addressService->listAll());
+
     }
 
     /**
@@ -60,33 +66,13 @@ class AddressController extends Controller
 
 
 /*
-php artisan make:request StoreAddressRequest
-php artisan make:request UpdateAddressRequest
-
-php artisan make:request StoreCartRequest
-php artisan make:request UpdateCartRequest
-
-php artisan make:request StoreCartItemRequest
-php artisan make:request UpdateCartItemRequest
-
-php artisan make:request StoreCategoryRequest
-php artisan make:request UpdateCategoryRequest
-
-php artisan make:request StoreOrderRequest
-php artisan make:request UpdateOrderRequest
-
-php artisan make:request StoreOrderItemRequest
-php artisan make:request UpdateOrderItemRequest
-
-php artisan make:request StorePaymentRequest
-php artisan make:request UpdatePaymentRequest
-
-
-php artisan make:request StoreProductRequest
-php artisan make:request UpdateProductRequest
-
-
-php artisan make:request StoreUserRequest
-php artisan make:request UpdateUserRequest
+php artisan make:resource AddressResource
+php artisan make:resource CartResource
+php artisan make:resource CategoryResource
+php artisan make:resource OrderResource
+php artisan make:resource OrderItemResource
+php artisan make:resource PaymentResource
+php artisan make:resource ProductResource
+php artisan make:resource UserResource
 
 */
