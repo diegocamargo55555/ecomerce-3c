@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StorePaymentRequest;
+use App\Http\Requests\UpdatePaymentRequest;
+use App\Http\Resources\PaymentResource;
 use App\Services\PaymentService;
-use Illuminate\Http\Request;
 
 class PaymentController extends Controller
 {
@@ -17,13 +19,13 @@ class PaymentController extends Controller
      */
     public function index()
     {
-        return response()->json($this->paymentService->listAll());
+        return PaymentResource::collection($this->paymentService->listAll());
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StorePaymentRequest $request)
     {
         $payment = $this->paymentService->create($request->all());
         return response()->json($payment, 201);
@@ -34,16 +36,16 @@ class PaymentController extends Controller
      */
     public function show(string $id)
     {
-        return response()->json($this->paymentService->findById($id));
+        return new PaymentResource($this->paymentService->findById($id));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdatePaymentRequest $request, int $id)
     {
-        $payment = $this->paymentService->update($id, $request->all());
-        return response()->json($payment);
+        $payment = $this->paymentService->update($id, $request->validated());
+        return new PaymentResource($payment);
     }
 
     /**

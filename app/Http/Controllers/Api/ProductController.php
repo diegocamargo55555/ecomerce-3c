@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
+use App\Http\Resources\ProductResource;
 use App\Services\ProductService;
-use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
@@ -14,10 +16,10 @@ class ProductController extends Controller
 
     public function index()
     {
-        return response()->json($this->productService->listAll());
+        return ProductResource::collection($this->productService->listAll());
     }
 
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
         $product = $this->productService->create($request->all());
 
@@ -26,14 +28,14 @@ class ProductController extends Controller
 
     public function show(string $id)
     {
-        return response()->json($this->productService->findById($id));
+        return new ProductResource($this->productService->findById($id));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateProductRequest $request, int $id)
     {
-        $product = $this->productService->update($id, $request->all());
+        $product = $this->productService->update($id, $request->validated());
 
-        return response()->json($product);
+        return new ProductResource($product);
     }
 
     public function destroy(string $id)

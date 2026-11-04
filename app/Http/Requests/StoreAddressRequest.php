@@ -23,6 +23,7 @@ class StoreAddressRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'users_id' => ['required', 'integer', 'exists:users,id'],
             'recipient_name' => ['required', 'string', 'max:255'],
             'zip_code' => ['required', 'string', 'max:255'],
             'street' => ['required', 'string', 'max:255'],
@@ -31,18 +32,6 @@ class StoreAddressRequest extends FormRequest
             'neighborhood' => ['required', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'state' => ['required', 'string', 'max:255'],
-
         ];
     }
 }
-
-/*        'users_id',
-        'recipient_name',
-        'zip_code',
-        'street',
-        'number',
-        'complement',
-        'neighborhood',
-        'city',
-        'state',
-*/

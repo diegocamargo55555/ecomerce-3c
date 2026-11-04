@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCartRequest;
+use App\Http\Requests\UpdateCartRequest;
+use App\Http\Resources\CartResource;
 use App\Services\CartService;
-use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
@@ -14,26 +16,24 @@ class CartController extends Controller
 
     public function index()
     {
-        return response()->json($this->cartService->listAll());
+        return CartResource::collection($this->cartService->listAll());
     }
 
-    public function store(Request $request)
+    public function store(StoreCartRequest $request)
     {
         $cart = $this->cartService->create($request->all());
-
         return response()->json($cart, 201);
     }
 
     public function show(string $id)
     {
-        return response()->json($this->cartService->findById($id));
+        return new CartResource($this->cartService->findById($id));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateCartRequest $request, int $id)
     {
-        $cart = $this->cartService->update($id, $request->all());
-
-        return response()->json($cart);
+        $cart = $this->cartService->update($id, $request->validated());
+        return new CartResource($cart);
     }
 
     public function destroy(string $id)

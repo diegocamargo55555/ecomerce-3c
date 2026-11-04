@@ -14,6 +14,19 @@ class CartResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return parent::toArray($request);
+        return [
+            'id' => $this->id,
+            'user_id' => $this->user_id,
+            'guest_token' => $this->guest_token,
+            'created_at'  => $this->created_at,
+            'updated_at'  => $this->updated_at,
+        ];
     }
 }
+
+
+/*
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'guest_token' => ['nullable', 'string', 'max:255', 'unique:carts,guest_token'],
+
+*/

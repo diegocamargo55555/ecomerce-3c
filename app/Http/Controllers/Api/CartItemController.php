@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCartItemRequest;
+use App\Http\Requests\UpdateCartItemRequest;
+use App\Http\Resources\CartItemResource;
 use App\Services\CartItemService;
-use Illuminate\Http\Request;
 
 class CartItemController extends Controller
 {
@@ -14,10 +16,10 @@ class CartItemController extends Controller
 
     public function index()
     {
-        return response()->json($this->cartItemService->listAll());
+        return CartItemResource::collection($this->cartItemService->listAll());
     }
 
-    public function store(Request $request)
+    public function store(StoreCartItemRequest $request)
     {
         $cartItem = $this->cartItemService->create($request->all());
 
@@ -26,14 +28,14 @@ class CartItemController extends Controller
 
     public function show(string $id)
     {
-        return response()->json($this->cartItemService->findById($id));
+        return new CartItemResource($this->cartItemService->findById($id));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateCartItemRequest $request, int $id)
     {
-        $cartItem = $this->cartItemService->update($id, $request->all());
+        $cartItem = $this->cartItemService->update($id, $request->validated());
 
-        return response()->json($cartItem);
+        return new CartItemResource($cartItem);
     }
 
     public function destroy(string $id)

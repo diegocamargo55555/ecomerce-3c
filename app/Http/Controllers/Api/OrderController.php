@@ -3,32 +3,29 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
+use App\Http\Requests\StoreOrderRequest;
+use App\Http\Requests\UpdateOrderRequest;
+use App\Http\Resources\OrderResource;
 use App\Services\OrderService;
-use Illuminate\Http\Request;
 
 class OrderController extends Controller
 {
     public function __construct(
         private OrderService $orderService
     ) {}
-    
-    
+
     public function index()
     {
-        
-        return response()->json($this->orderService->listAll());
-
+        return OrderResource::collection($this->orderService->listAll());
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreOrderRequest $request)
     {
         $order = $this->orderService->create($request->all());
         return response()->json($order, 201);
-
     }
 
     /**
@@ -36,19 +33,16 @@ class OrderController extends Controller
      */
     public function show(string $id)
     {
-                
-        return response()->json($this->orderService->findById($id));
-
+        return new OrderResource($this->orderService->findById($id));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateOrderRequest $request, int $id)
     {
-        $order = $this->orderService->update($id, $request->all());
-        return response()->json($order);
-
+        $order = $this->orderService->update($id, $request->validated());
+        return new OrderResource($order);
     }
 
     /**

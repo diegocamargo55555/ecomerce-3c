@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreCategoryRequest;
+use App\Http\Requests\UpdateCategoryRequest;
+use App\Http\Resources\CategoryResource;
 use App\Services\CategoryService;
-use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
@@ -14,10 +16,10 @@ class CategoryController extends Controller
 
     public function index()
     {
-        return response()->json($this->categoryService->listAll());
+        return CategoryResource::collection($this->categoryService->listAll());
     }
 
-    public function store(Request $request)
+    public function store(StoreCategoryRequest $request)
     {
         $category = $this->categoryService->create($request->all());
 
@@ -26,14 +28,14 @@ class CategoryController extends Controller
 
     public function show(string $id)
     {
-        return response()->json($this->categoryService->findById($id));
+        return new CategoryResource($this->categoryService->findById($id));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateCategoryRequest $request, int $id)
     {
-        $category = $this->categoryService->update($id, $request->all());
+        $category = $this->categoryService->update($id, $request->validated());
 
-        return response()->json($category);
+        return new CategoryResource($category);
     }
 
     public function destroy(string $id)

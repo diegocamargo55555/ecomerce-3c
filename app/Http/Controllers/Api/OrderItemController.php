@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreOrderItemRequest;
+use App\Http\Requests\UpdateOrderItemRequest;
+use App\Http\Resources\OrderItemResource;
 use App\Services\OrderItemService;
-use Illuminate\Http\Request;
 
 class OrderItemController extends Controller
 {
@@ -14,10 +16,10 @@ class OrderItemController extends Controller
 
     public function index()
     {
-        return response()->json($this->orderItemService->listAll());
+        return OrderItemResource::collection($this->orderItemService->listAll());
     }
 
-    public function store(Request $request)
+    public function store(StoreOrderItemRequest $request)
     {
         $orderItem = $this->orderItemService->create($request->all());
 
@@ -26,14 +28,14 @@ class OrderItemController extends Controller
 
     public function show(string $id)
     {
-        return response()->json($this->orderItemService->findById($id));
+        return new OrderItemResource($this->orderItemService->findById($id));
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateOrderItemRequest $request, int $id)
     {
-        $orderItem = $this->orderItemService->update($id, $request->all());
+        $orderItem = $this->orderItemService->update($id, $request->validated());
 
-        return response()->json($orderItem);
+        return new OrderItemResource($orderItem);
     }
 
     public function destroy(string $id)

@@ -29,7 +29,7 @@ class AddressController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreAddressRequest $request)
     {
         $address = $this->addressService->create($request->all());
         return response()->json($address, 201);
@@ -40,16 +40,16 @@ class AddressController extends Controller
      */
     public function show(string $id)
     {
-        return response()->json($this->addressService->findById($id));
+        return new addressResource($this->addressService->findById($id));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateAddressRequest $request, int $id)
     {
-        $address = $this->addressService->update($id, $request->all());
-        return response()->json($address);
+        $address = $this->addressService->update($id, $request->validated());
+        return new AddressResource($address);
     }
 
     /**
