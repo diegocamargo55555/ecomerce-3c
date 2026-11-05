@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CartItemController;
@@ -11,29 +12,40 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::apiResource('users', UserController::class)
+Route::post('register', [AuthController::class, 'register'])
+    ->middleware('throttle:6,1');
+
+Route::post('login', [AuthController::class, 'login'])
+    ->middleware('throttle:6,1');
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('me', [AuthController::class, 'me']);
+    Route::post('logout', [AuthController::class, 'logout']);
+
+    Route::apiResource('users', UserController::class)
     ->whereNumber('user');
 
-Route::apiResource('addresses', AddressController::class)
+    Route::apiResource('addresses', AddressController::class)
     ->whereNumber('address');
 
-Route::apiResource('orders', OrderController::class)
+    Route::apiResource('orders', OrderController::class)
     ->whereNumber('order');
 
-Route::apiResource('payments', PaymentController::class)
+    Route::apiResource('payments', PaymentController::class)
     ->whereNumber('payment');
 
-Route::apiResource('categories', CategoryController::class)
+    Route::apiResource('categories', CategoryController::class)
     ->whereNumber('category');
 
-Route::apiResource('products', ProductController::class)
+    Route::apiResource('products', ProductController::class)
     ->whereNumber('product');
 
-Route::apiResource('carts', CartController::class)
+    Route::apiResource('carts', CartController::class)
     ->whereNumber('cart');
 
-Route::apiResource('cart-items', CartItemController::class)
+    Route::apiResource('cart-items', CartItemController::class)
     ->whereNumber('cart_item');
 
-Route::apiResource('order-items', OrderItemController::class)
+    Route::apiResource('order-items', OrderItemController::class)
     ->whereNumber('order_item');
+});
