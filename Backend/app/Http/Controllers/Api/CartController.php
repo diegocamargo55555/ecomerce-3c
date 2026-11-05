@@ -3,43 +3,30 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreCartRequest;
-use App\Http\Requests\UpdateCartRequest;
 use App\Http\Resources\CartResource;
-use App\Services\CartService;
+use App\Services\ShopService;
+use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
-    public function __construct(
-        private CartService $cartService
-    ) {}
-
-    public function index()
+    public function current(Request $request, ShopService $shop)
     {
-        return CartResource::collection($this->cartService->listAll());
+        return (new CartResource($shop->currentCart($request->user())->load('items.product')))
+            ->response()->setStatusCode(200);
     }
 
-    public function store(StoreCartRequest $request)
+    public function index(Request $request)
     {
-        $cart = $this->cartService->create($request->all());
-        return response()->json($cart, 201);
+        return CartResource::collection($request->user()->carts()->with('items.product')->get());
     }
 
-    public function show(string $id)
+    public function store(Request $request, ShopService $shop)
     {
-        return new CartResource($this->cartService->findById($id));
+        return $this->current($request, $shop);
     }
 
-    public function update(UpdateCartRequest $request, int $id)
+    public function show(Request $request, int $id)
     {
-        $cart = $this->cartService->update($id, $request->validated());
-        return new CartResource($cart);
-    }
-
-    public function destroy(string $id)
-    {
-        $this->cartService->delete($id);
-
-        return response()->noContent();
+        return new CartResource($request->user()->carts()->with('items.product')->findOrFail($id));
     }
 }

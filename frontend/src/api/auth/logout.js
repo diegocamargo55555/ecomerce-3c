@@ -1,7 +1,7 @@
-import { api } from '../http.js'
+import { api } from "../http.js";
 
 export function logout() {
-    return api('/api/logout', {
-        method: 'POST',
-    })
+  return api("/api/logout", {
+    method: "POST",
+  });
 }

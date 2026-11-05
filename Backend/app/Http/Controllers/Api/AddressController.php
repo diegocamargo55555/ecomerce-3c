@@ -3,76 +3,59 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\AddressService;
-use Illuminate\Http\Request;
-
-use App\Http\Requests\StoreAddressRequest;
-use App\Http\Requests\UpdateAddressRequest;
 use App\Http\Resources\AddressResource;
-
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AddressController extends Controller
 {
-    public function __construct(
-        private AddressService $addressService
-    ) {}
-
-        /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    private function fields(Request $request): array
     {
-        return addressResource::collection($this->addressService->listAll());
-
+        return $request->validate([
+            'recipient_name' => ['required', 'string', 'max:255'],
+            'zip_code' => ['required', 'regex:/^\d{5}-?\d{3}$/'],
+            'street' => ['required', 'string', 'max:255'],
+            'number' => ['required', 'string', 'max:30'],
+            'complement' => ['nullable', 'string', 'max:255'],
+            'neighborhood' => ['required', 'string', 'max:255'],
+            'city' => ['required', 'string', 'max:255'],
+            'state' => ['required', 'string', 'size:2'],
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreAddressRequest $request)
+    public function index(Request $request)
     {
-        $address = $this->addressService->create($request->all());
-        return response()->json($address, 201);
+        return AddressResource::collection($request->user()->addresses()->get());
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function store(Request $request)
     {
-        return new addressResource($this->addressService->findById($id));
+        return (new AddressResource($request->user()->addresses()->create($this->fields($request))))
+            ->response()->setStatusCode(201);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdateAddressRequest $request, int $id)
+    public function show(Request $request, int $id)
     {
-        $address = $this->addressService->update($id, $request->validated());
+        return new AddressResource($request->user()->addresses()->findOrFail($id));
+    }
+
+    public function update(Request $request, int $id)
+    {
+        $address = $request->user()->addresses()->findOrFail($id);
+        if ($address->orders()->exists()) {
+            throw ValidationException::withMessages(['address' => 'Este endereço já foi usado em um pedido. Cadastre um novo endereço.']);
+        }
+        $address->update($this->fields($request));
         return new AddressResource($address);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Request $request, int $id)
     {
-        $this->addressService->delete($id);
+        $address = $request->user()->addresses()->findOrFail($id);
+        if ($address->orders()->exists()) {
+            throw ValidationException::withMessages(['address' => 'Endereços usados em pedidos não podem ser excluídos.']);
+        }
+        $address->delete();
         return response()->noContent();
     }
 }
-
-
-
-
-/*
-php artisan make:resource AddressResource
-php artisan make:resource CartResource
-php artisan make:resource CategoryResource
-php artisan make:resource OrderResource
-php artisan make:resource OrderItemResource
-php artisan make:resource PaymentResource
-php artisan make:resource ProductResource
-php artisan make:resource UserResource
-
-*/

@@ -21,9 +21,9 @@ class CategoryController extends Controller
 
     public function store(StoreCategoryRequest $request)
     {
-        $category = $this->categoryService->create($request->all());
+        $category = $this->categoryService->create($request->validated());
 
-        return response()->json($category, 201);
+        return (new CategoryResource($category))->response()->setStatusCode(201);
     }
 
     public function show(string $id)

@@ -25,7 +25,7 @@ class StoreCartItemRequest extends FormRequest
         return [
             'cart_id' => ['required', 'integer', 'exists:carts,id'],
             'product_id' => ['required', 'integer', 'exists:products,id'],
-            'quantity' => ['required', 'integer', 'min:1'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:2147483647'],
         ];
     }
 }

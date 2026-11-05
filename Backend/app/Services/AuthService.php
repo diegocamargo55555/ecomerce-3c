@@ -11,6 +11,7 @@ class AuthService
 {
     public function register(array $data, Request $request): User
     {
+        abort_unless($request->hasSession(), 419, 'Inicie uma sessão pela loja antes de continuar.');
         $user = User::create($data);
 
         Auth::guard('web')->login($user);
@@ -21,6 +22,7 @@ class AuthService
 
     public function login(array $credentials, Request $request): User
     {
+        abort_unless($request->hasSession(), 419, 'Inicie uma sessão pela loja antes de continuar.');
         if (! Auth::guard('web')->attempt($credentials)) {
             throw ValidationException::withMessages([
                 'email' => ['E-mail ou senha inválidos.'],
@@ -34,6 +36,7 @@ class AuthService
 
     public function logout(Request $request): void
     {
+        abort_unless($request->hasSession(), 419, 'Inicie uma sessão pela loja antes de continuar.');
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

@@ -42,7 +42,7 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return new UserResource($request->user());
+        return (new UserResource($request->user()))->response()->setStatusCode(200);
     }
 
     public function logout(Request $request)

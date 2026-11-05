@@ -4,44 +4,43 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCartItemRequest;
-use App\Http\Requests\UpdateCartItemRequest;
 use App\Http\Resources\CartItemResource;
-use App\Services\CartItemService;
+use App\Models\Cart_item;
+use App\Services\ShopService;
+use Illuminate\Http\Request;
 
 class CartItemController extends Controller
 {
-    public function __construct(
-        private CartItemService $cartItemService
-    ) {}
-
-    public function index()
+    private function owned(Request $request)
     {
-        return CartItemResource::collection($this->cartItemService->listAll());
+        return Cart_item::whereHas('cart', fn ($query) => $query->where('user_id', $request->user()->id));
     }
 
-    public function store(StoreCartItemRequest $request)
+    public function index(Request $request)
     {
-        $cartItem = $this->cartItemService->create($request->all());
-
-        return response()->json($cartItem, 201);
+        return CartItemResource::collection($this->owned($request)->with('product')->get());
     }
 
-    public function show(string $id)
+    public function store(StoreCartItemRequest $request, ShopService $shop)
     {
-        return new CartItemResource($this->cartItemService->findById($id));
+        return (new CartItemResource($shop->saveItem($request->user(), $request->validated())))
+            ->response()->setStatusCode(201);
     }
 
-    public function update(UpdateCartItemRequest $request, int $id)
+    public function show(Request $request, int $id)
     {
-        $cartItem = $this->cartItemService->update($id, $request->validated());
-
-        return new CartItemResource($cartItem);
+        return new CartItemResource($this->owned($request)->with('product')->findOrFail($id));
     }
 
-    public function destroy(string $id)
+    public function update(Request $request, int $id, ShopService $shop)
     {
-        $this->cartItemService->delete($id);
+        $data = $request->validate(['quantity' => ['required', 'integer', 'min:1', 'max:2147483647']]);
+        return new CartItemResource($shop->saveItem($request->user(), $data, $id));
+    }
 
+    public function destroy(Request $request, int $id, ShopService $shop)
+    {
+        $shop->removeItem($request->user(), $id);
         return response()->noContent();
     }
 }

@@ -32,6 +32,12 @@ class CategoryService
 
     public function delete(int $id): void
     {
-        Category::findOrFail($id)->delete();
+        $category = Category::findOrFail($id);
+        if ($category->products()->withTrashed()->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'category' => 'Esta categoria possui produtos vinculados e não pode ser excluída.',
+            ]);
+        }
+        $category->delete();
     }
 }

@@ -7,6 +7,8 @@ use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Services\ProductService;
+use App\Models\Product;
+use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
@@ -14,21 +16,25 @@ class ProductController extends Controller
         private ProductService $productService
     ) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        return ProductResource::collection($this->productService->listAll());
+        return ProductResource::collection(Product::query()
+            ->when(! $request->routeIs('admin.*'), fn ($q) => $q->where('is_active', true))
+            ->latest('id')->get());
     }
 
     public function store(StoreProductRequest $request)
     {
-        $product = $this->productService->create($request->all());
+        $product = $this->productService->create($request->validated());
 
-        return response()->json($product, 201);
+        return (new ProductResource($product))->response()->setStatusCode(201);
     }
 
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
-        return new ProductResource($this->productService->findById($id));
+        return new ProductResource(Product::query()
+            ->when(! $request->routeIs('admin.*'), fn ($q) => $q->where('is_active', true))
+            ->findOrFail($id));
     }
 
     public function update(UpdateProductRequest $request, int $id)
