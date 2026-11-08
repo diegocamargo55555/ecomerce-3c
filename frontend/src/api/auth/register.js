@@ -1,6 +1,5 @@
-import { api, resourceData } from '../http.js'
+import { api } from "../http.js";
 
-export async function getCurrentUser() {
-    const response = await api('/api/me')
-    return resourceData(response)
+export function register(credentials) {
+  return api("/api/register", { method: "POST", body: credentials });
 }
