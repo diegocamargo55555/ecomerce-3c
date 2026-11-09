@@ -7,6 +7,30 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Dados de demonstração
+
+Os seeders criam uma loja de Warhammer 40.000 com quatro categorias (Imperium, Caos, Xenos e Pintura e acessórios), oito produtos e exemplos vinculados de clientes, carrinhos, pedidos e pagamentos. Preços e estoques são ilustrativos.
+
+As oito fotos ficam em `public/images/products/`, com as fontes registradas no [README das imagens](public/images/products/README.md). O seeder preenche `image_url` com URLs dos arquivos locais, geradas pelo Laravel a partir de `APP_URL` (ou `ASSET_URL`, quando configurada). `APP_URL` deve apontar para o endereço público do backend que serve essas imagens; no Compose atual, o padrão `http://localhost` usa o proxy na porta 80.
+
+Depois de aplicar as migrações em uma base vazia, execute na raiz do projeto:
+
+```sh
+docker compose exec php php artisan db:seed
+```
+
+Os seeders não substituem os registros de uma base já preenchida. Para testar os dados e os totais sem alterar a loja, execute `docker compose exec php php artisan test --filter=DatabaseSeederTest`; o teste usa SQLite em memória.
+
+### Fotos em produtos já cadastrados
+
+A migration `2026_11_08_230858_fill_missing_product_images` preenche as fotos ausentes dos oito produtos de Warhammer 40.000, associando seus nomes aos arquivos locais. Ela preserva fotos já cadastradas, preços, estoque e relacionamentos. Para aplicá-la a uma base existente:
+
+```sh
+docker compose exec php php artisan migrate --path=database/migrations/2026_11_08_230858_fill_missing_product_images.php
+```
+
+O rollback mantém as fotos para não remover imagens válidas. O teste `ProductImagesMigrationTest` verifica o preenchimento, a preservação de dados e a repetição segura da migration em SQLite em memória.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

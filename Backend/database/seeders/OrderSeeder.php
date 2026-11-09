@@ -14,9 +14,9 @@ class OrderSeeder extends Seeder
         $addressIds = DB::table('addresses')->pluck('id', 'users_id');
 
         $orders = [
-            ['user' => 'test@example.com', 'status' => 'pago', 'subtotal' => '509.70', 'shipping_cost' => '20.00', 'total' => '529.70'],
-            ['user' => 'ana@example.com', 'status' => 'pendente', 'subtotal' => '1499.90', 'shipping_cost' => '0.00', 'total' => '1499.90'],
-            ['user' => 'bruno@example.com', 'status' => 'cancelado', 'subtotal' => '179.70', 'shipping_cost' => '15.00', 'total' => '194.70'],
+            ['user' => 'test@example.com', 'status' => 'pago', 'subtotal' => '419.70', 'shipping_cost' => '20.00', 'total' => '439.70'],
+            ['user' => 'ana@example.com', 'status' => 'pendente', 'subtotal' => '299.90', 'shipping_cost' => '0.00', 'total' => '299.90'],
+            ['user' => 'bruno@example.com', 'status' => 'cancelado', 'subtotal' => '149.70', 'shipping_cost' => '15.00', 'total' => '164.70'],
         ];
 
         foreach ($orders as $order) {

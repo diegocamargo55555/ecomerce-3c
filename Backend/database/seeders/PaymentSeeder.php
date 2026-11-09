@@ -14,9 +14,9 @@ class PaymentSeeder extends Seeder
         $orderIds = DB::table('orders')->pluck('id', 'users_id');
 
         $payments = [
-            ['user' => 'test@example.com', 'status' => 'pago', 'amount' => '529.70', 'paid_at' => $now],
-            ['user' => 'ana@example.com', 'status' => 'pendente', 'amount' => '1499.90', 'paid_at' => null],
-            ['user' => 'bruno@example.com', 'status' => 'cancelado', 'amount' => '194.70', 'paid_at' => null],
+            ['user' => 'test@example.com', 'status' => 'pago', 'amount' => '439.70', 'paid_at' => $now],
+            ['user' => 'ana@example.com', 'status' => 'pendente', 'amount' => '299.90', 'paid_at' => null],
+            ['user' => 'bruno@example.com', 'status' => 'cancelado', 'amount' => '164.70', 'paid_at' => null],
         ];
 
         foreach ($payments as $payment) {

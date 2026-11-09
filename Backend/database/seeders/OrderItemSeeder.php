@@ -15,10 +15,10 @@ class OrderItemSeeder extends Seeder
         $productIds = DB::table('products')->pluck('id', 'name');
 
         $items = [
-            ['user' => 'test@example.com', 'product' => 'Teclado Mecânico', 'unit_price' => '249.90', 'quantity' => 1, 'subtotal' => '249.90'],
-            ['user' => 'test@example.com', 'product' => 'Mouse Sem Fio', 'unit_price' => '129.90', 'quantity' => 2, 'subtotal' => '259.80'],
-            ['user' => 'ana@example.com', 'product' => 'Smartphone', 'unit_price' => '1499.90', 'quantity' => 1, 'subtotal' => '1499.90'],
-            ['user' => 'bruno@example.com', 'product' => 'Camiseta Básica', 'unit_price' => '59.90', 'quantity' => 3, 'subtotal' => '179.70'],
+            ['user' => 'test@example.com', 'product' => 'Space Marines: Intercessors', 'unit_price' => '349.90', 'quantity' => 1, 'subtotal' => '349.90'],
+            ['user' => 'test@example.com', 'product' => 'Citadel Colour: Macragge Blue', 'unit_price' => '34.90', 'quantity' => 2, 'subtotal' => '69.80'],
+            ['user' => 'ana@example.com', 'product' => 'Necrons: Warriors', 'unit_price' => '299.90', 'quantity' => 1, 'subtotal' => '299.90'],
+            ['user' => 'bruno@example.com', 'product' => 'Citadel Starter Brush', 'unit_price' => '49.90', 'quantity' => 3, 'subtotal' => '149.70'],
         ];
 
         foreach ($items as $item) {

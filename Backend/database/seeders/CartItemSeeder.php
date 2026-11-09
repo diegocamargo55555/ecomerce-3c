@@ -15,10 +15,10 @@ class CartItemSeeder extends Seeder
         $productIds = DB::table('products')->pluck('id', 'name');
 
         $items = [
-            ['user' => 'test@example.com', 'product' => 'Teclado Mecânico', 'quantity' => 1],
-            ['user' => 'test@example.com', 'product' => 'Mouse Sem Fio', 'quantity' => 2],
-            ['user' => 'ana@example.com', 'product' => 'Smartphone', 'quantity' => 1],
-            ['user' => 'bruno@example.com', 'product' => 'Camiseta Básica', 'quantity' => 3],
+            ['user' => 'test@example.com', 'product' => 'Space Marines: Intercessors', 'quantity' => 1],
+            ['user' => 'test@example.com', 'product' => 'Citadel Colour: Macragge Blue', 'quantity' => 2],
+            ['user' => 'ana@example.com', 'product' => 'Necrons: Warriors', 'quantity' => 1],
+            ['user' => 'bruno@example.com', 'product' => 'Citadel Starter Brush', 'quantity' => 3],
         ];
 
         foreach ($items as $item) {

@@ -12,9 +12,10 @@ class CategorySeeder extends Seeder
         $now = now();
 
         $categories = [
-            ['name' => 'Informática', 'slug' => 'informatica', 'description' => 'Computadores e acessórios para o dia a dia.'],
-            ['name' => 'Eletrônicos', 'slug' => 'eletronicos', 'description' => 'Celulares, fones e outros dispositivos.'],
-            ['name' => 'Roupas', 'slug' => 'roupas', 'description' => 'Roupas e acessórios de vestuário.'],
+            ['name' => 'Imperium', 'slug' => 'imperium', 'description' => 'Miniaturas de Space Marines, Adepta Sororitas e outros exércitos do Imperium para Warhammer 40.000.'],
+            ['name' => 'Caos', 'slug' => 'caos', 'description' => 'Miniaturas das legiões e forças do Caos para Warhammer 40.000.'],
+            ['name' => 'Xenos', 'slug' => 'xenos', 'description' => 'Miniaturas de Necrons, Tyranids e outras facções alienígenas de Warhammer 40.000.'],
+            ['name' => 'Pintura e acessórios', 'slug' => 'pintura-e-acessorios', 'description' => 'Tintas Citadel e ferramentas para preparar e pintar suas miniaturas.'],
         ];
 
         foreach ($categories as $category) {
