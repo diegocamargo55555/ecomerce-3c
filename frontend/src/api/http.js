@@ -79,7 +79,8 @@ export async function api(path, { method = "GET", body } = {}, retry = true) {
   if (!response.ok) {
     if (
       response.status === 401 &&
-      !["/api/login", "/api/register", "/api/me"].includes(path)
+      !["/api/login", "/api/register"].includes(path) &&
+      !(path === "/api/me" && method === "GET")
     ) {
       window.dispatchEvent(new Event("session-expired"));
     }
@@ -183,4 +184,16 @@ export async function listCatalog({ search, category, sort, page }) {
   )
     throw new ApiError("A resposta recebida não contém um catálogo válido.");
   return response;
+}
+
+export async function updateProfile(data) {
+  return resourceData(await api("/api/me", { method: "PATCH", body: data }));
+}
+
+export async function updateAddress(id, data) {
+  return resourceData(await api(`/api/my/addresses/${encodeURIComponent(id)}`, { method: "PATCH", body: data }));
+}
+
+export async function deleteAddress(id) {
+  return api(`/api/my/addresses/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

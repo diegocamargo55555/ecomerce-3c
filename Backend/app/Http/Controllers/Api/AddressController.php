@@ -31,6 +31,20 @@ class AddressController extends Controller
         return new AddressResource($address);
     }
 
+    public function updateOwn(UpdateAddressRequest $request, int $id)
+    {
+        $address = $this->addressService->update($id, $request->validated(), $request->user()->id);
+
+        return (new AddressResource($address))->response()->setStatusCode(200);
+    }
+
+    public function destroyOwn(Request $request, int $id)
+    {
+        $this->addressService->delete($id, $request->user()->id);
+
+        return response()->noContent();
+    }
+
         /**
      * Display a listing of the resource.
      */
@@ -63,7 +77,7 @@ class AddressController extends Controller
     public function update(UpdateAddressRequest $request, int $id)
     {
         $address = $this->addressService->update($id, $request->validated());
-        return new AddressResource($address);
+        return (new AddressResource($address))->response()->setStatusCode(200);
     }
 
     /**

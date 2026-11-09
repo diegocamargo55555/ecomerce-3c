@@ -52,4 +52,15 @@ class AuthService
         $request->session()->invalidate();
         $request->session()->regenerateToken();
     }
+
+    public function updateProfile(User $user, array $data): User
+    {
+        $user->fill(\Illuminate\Support\Arr::only($data, ['name', 'email']));
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
+        }
+        $user->save();
+
+        return $user;
+    }
 }

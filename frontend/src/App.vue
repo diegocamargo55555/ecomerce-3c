@@ -25,7 +25,7 @@ const productId = computed(() =>
   page.value.startsWith("products/") ? page.value.slice(9) : "",
 );
 const orderId = computed(() => page.value.startsWith("order/") ? page.value.slice(6) : "");
-const customerPage = computed(() => ["checkout", "my-orders"].includes(page.value) || !!orderId.value);
+const customerPage = computed(() => ["checkout", "my-orders", "profile"].includes(page.value) || !!orderId.value);
 const afterLogin = ref("cart");
 const menuOpen = ref(false);
 const compactLayout = window.matchMedia("(max-width: 760px)");
@@ -42,6 +42,7 @@ const title = computed(
       : page.value === "cart" ? "Meu carrinho"
       : page.value === "checkout" ? "Finalizar compra"
       : page.value === "my-orders" ? "Meus pedidos"
+      : page.value === "profile" ? "Meu perfil"
       : orderId.value ? `Pedido #${orderId.value}`
       : productId.value ? "Produto" : resources[resourceKey.value]?.title || "Visão geral",
 );
@@ -66,7 +67,7 @@ function syncRoute() {
     Object.hasOwn(resources, key) ||
     /^products\/[^/]+$/.test(key) ||
     /^order\/[^/]+$/.test(key) ||
-    ["login", "cart", "checkout", "my-orders", "overview", "manage-products", "manage-categories"].includes(key)
+    ["login", "cart", "checkout", "my-orders", "profile", "overview", "manage-products", "manage-categories"].includes(key)
       ? key
       : "products";
   if (!starting.value && !startError.value) {
@@ -207,6 +208,7 @@ onBeforeUnmount(() => {
     :signing-out="signingOut"
     @navigate="navigate"
     @sign-out="signOut"
+    @user-updated="user = $event"
   />
   <div v-else-if="isAdmin" class="app-layout">
     <a

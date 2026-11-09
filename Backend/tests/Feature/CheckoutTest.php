@@ -329,4 +329,68 @@ class CheckoutTest extends TestCase
         $this->assertSame(5, $this->product->fresh()->stock);
     }
 
+    public function test_own_address_updates_and_deletes_require_session_and_ownership(): void
+    {
+        $url = "/api/my/addresses/{$this->address->id}";
+        $this->patchJson($url, ['street' => 'Rua B'])->assertUnauthorized();
+        $this->deleteJson($url)->assertUnauthorized();
+        $this->actingAs(User::factory()->create())->patchJson($url, ['street' => 'Rua B'])->assertNotFound();
+        $this->deleteJson($url)->assertNotFound();
+        $this->actingAs(User::factory()->create(['role' => 'admin']))->deleteJson($url)->assertNotFound();
+        $this->actingAs($this->user)->patchJson($url, ['users_id' => null])->assertUnprocessable()->assertJsonValidationErrors('users_id');
+        $this->patchJson($url, ['street' => ''])->assertUnprocessable()->assertJsonValidationErrors('street');
+        $this->patchJson($url, ['street' => 'Rua B', 'complement' => null])->assertOk()
+            ->assertJsonPath('data.id', $this->address->id)->assertJsonPath('data.street', 'Rua B');
+        $this->deleteJson($url)->assertNoContent();
+        $this->assertSoftDeleted('addresses', ['id' => $this->address->id]);
+        $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(0, 'data');
+        $this->patchJson($url, ['street' => 'Rua C'])->assertNotFound();
+        $this->deleteJson($url)->assertNotFound();
+    }
+
+    public function test_address_changes_and_deletes_preserve_orders_and_checkout_uses_new_version(): void
+    {
+        $this->fillCart(1);
+        $first = $this->checkout();
+        $oldId = $this->address->id;
+        $newId = $this->patchJson("/api/my/addresses/{$oldId}", ['street' => 'Rua B'])->assertOk()
+            ->assertJsonPath('data.street', 'Rua B')->json('data.id');
+        $this->assertNotSame($oldId, $newId);
+        $this->assertSoftDeleted('addresses', ['id' => $oldId, 'street' => 'Rua A']);
+        $this->getJson("/api/orders/{$first}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
+        $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $newId);
+        $this->fillCart(1);
+        $this->postJson('/api/orders', ['address_id' => $oldId])->assertNotFound();
+        $second = $this->postJson('/api/orders', ['address_id' => $newId])->assertCreated()->json('data.id');
+        $this->deleteJson("/api/my/addresses/{$newId}")->assertNoContent();
+        $this->getJson("/api/orders/{$second}")->assertOk()->assertJsonPath('data.address.street', 'Rua B');
+        $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_admin_address_edits_also_preserve_order_history(): void
+    {
+        $this->fillCart(1);
+        $id = $this->checkout();
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $newId = $this->patchJson("/api/addresses/{$this->address->id}", ['street' => 'Rua admin'])
+            ->assertOk()->json('data.id');
+        $this->deleteJson("/api/addresses/{$newId}")->assertNoContent();
+        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
+    }
+
+    public function test_address_versioning_rolls_back_if_archiving_fails(): void
+    {
+        $this->fillCart(1);
+        $id = $this->checkout();
+        Event::listen('eloquent.deleting: '.Address::class, fn () => throw new \RuntimeException('Falha simulada'));
+        try {
+            $this->patchJson("/api/my/addresses/{$this->address->id}", ['street' => 'Rua B'])->assertServerError();
+        } finally {
+            Event::forget('eloquent.deleting: '.Address::class);
+        }
+        $this->assertDatabaseCount('addresses', 1);
+        $this->assertSame('Rua A', $this->address->fresh()->street);
+        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
+    }
+
 }

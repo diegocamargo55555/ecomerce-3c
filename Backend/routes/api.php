@@ -28,6 +28,7 @@ Route::delete('cart/items/{id}', [CartItemController::class, 'removeCurrent'])->
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('me', [AuthController::class, 'me']);
+    Route::patch('me', [AuthController::class, 'updateMe']);
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('checkout', [OrderController::class, 'review']);
     Route::get('my/orders', [OrderController::class, 'mine']);
@@ -37,6 +38,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('orders/{id}/cancel', [OrderController::class, 'cancel'])->whereNumber('id');
     Route::get('my/addresses', [AddressController::class, 'mine']);
     Route::post('my/addresses', [AddressController::class, 'storeOwn']);
+    Route::patch('my/addresses/{id}', [AddressController::class, 'updateOwn'])->whereNumber('id');
+    Route::delete('my/addresses/{id}', [AddressController::class, 'destroyOwn'])->whereNumber('id');
 
     Route::apiResource('categories', CategoryController::class)
         ->only(['show'])->whereNumber('category');

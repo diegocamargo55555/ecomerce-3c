@@ -27,7 +27,7 @@ docker compose exec php php artisan migrate
 docker compose exec php php artisan db:seed --class=AdminUserSeeder
 ```
 
-O campo `role` é definido diretamente em `0001_01_01_000000_create_users_table.php`, limitado a `cliente` e `admin`, com padrão `cliente`. Alterar essa migration não atualiza tabelas já criadas: bancos antigos sem `role` precisam de ajuste do schema antes de usar esta versão. O banco local já possui a coluna e foi preservado.
+O campo `role` é definido diretamente em `0001_01_01_000000_create_users_table.php`, limitado a `cliente` e `admin`, com padrão `cliente`. Alterar essa migration não atualiza tabelas já criadas: bancos antigos sem `role` precisam de ajuste do schema antes de usar esta versão. Instalações novas já recebem essa coluna.
 
 O seeder isolado cria `admin@example.com` com senha `password` somente em ambiente `local` ou `testing`. Se a conta já for admin, preserva seus dados e senha. Se o e-mail pertencer a um cliente, interrompe sem promover ou sobrescrever a conta. O `DatabaseSeeder` pode ser repetido: cria somente os exemplos ausentes, sem redefinir preços, estoques, senhas ou registros já cadastrados. Produtos excluídos logicamente não são recriados. A carga roda em uma transação.
 
@@ -52,7 +52,7 @@ O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, 
 | --- | --- |
 | `GET /api/products`, `GET /api/categories`, `POST /api/register`, `POST /api/login` | Público |
 | `GET /api/admin/products` (todos os produtos, incluindo inativos) | Admin |
-| `GET /api/me`, `POST /api/logout` | Cliente ou admin autenticado |
+| `GET/PATCH /api/me`, `POST /api/logout` | Cliente ou admin autenticado |
 | `GET /api/products/:id` | Público |
 | `GET /api/cart`, `POST /api/cart/items`, `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id` | Carrinho atual da sessão, com ou sem login; escritas exigem CSRF |
 | `GET /api/categories/:id` | Cliente ou admin autenticado |
@@ -61,6 +61,7 @@ O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, 
 | `GET /api/checkout`, `POST /api/orders`, `GET/POST /api/my/addresses` | Cliente ou admin autenticado, usando o próprio carrinho e endereço |
 | `GET /api/orders/:id` | Dono do pedido ou admin |
 | `POST /api/orders/:id/pay` | Somente o dono do pedido |
+| `PATCH/DELETE /api/my/addresses/:id` | Somente o proprietário, inclusive para admins |
 | `GET /api/my/orders` | Pedidos da própria conta, inclusive para admins |
 | `POST /api/orders/:id/cancel` | Dono ou admin; somente pedidos pendentes |
 
@@ -93,7 +94,7 @@ docker compose exec php php artisan migrate
 docker compose exec php php artisan db:seed
 ```
 
-Os cinco status estão definidos diretamente na migration que cria `orders`. O checkout cria pedidos pendentes e a confirmação de pagamento os torna pagos; envio e entrega ainda estão pendentes. Alterar a migration original não atualiza tabelas já criadas. A base local já aceita os cinco status e foi preservada.
+Os cinco status estão definidos diretamente na migration que cria `orders`. O checkout cria pedidos pendentes e a confirmação de pagamento os torna pagos; envio e entrega ainda estão pendentes. Alterar a migration original não atualiza tabelas já criadas. Instalações novas já aceitam os cinco status.
 
 ## Página pública do produto
 
@@ -115,7 +116,7 @@ A regra de fusão, executada no login **e** no cadastro, é:
 4. A fusão é transacional, descarta o carrinho visitante com seus itens, remove o identificador da sessão e regenera a sessão invalidando a anterior. Login ou cadastro inválido preserva o carrinho visitante.
 5. O carrinho da conta permanece no banco entre sessões e dispositivos. Logout não apaga esse carrinho.
 
-Requisições da mesma sessão são serializadas para evitar perda do identificador de visitante entre abas; alterações no banco usam bloqueio dos registros. As migrations que criam `carts` e `cart_items` já definem os índices únicos de `user_id` e de `cart_id` + `product_id`. Alterar essas migrations não atualiza tabelas existentes. A base local já possui os índices aplicados e foi preservada; instalações antigas sem esses índices precisam de ajuste do schema antes de usar esta versão.
+Requisições da mesma sessão são serializadas para evitar perda do identificador de visitante entre abas; alterações no banco usam bloqueio dos registros. As migrations que criam `carts` e `cart_items` já definem os índices únicos de `user_id` e de `cart_id` + `product_id`. Alterar essas migrations não atualiza tabelas existentes. Instalações novas já possuem esses índices; bases antigas sem eles precisam de ajuste do schema antes de usar esta versão.
 
 
 ## Checkout e pagamento simulado
@@ -128,7 +129,7 @@ A criação usa uma transação com bloqueio do carrinho, dos itens e dos produt
 
 A página `/#order/ID` mostra o pedido, seus itens congelados, endereço, frete e total. O dono encontra a ação **Confirmar pagamento simulado**. `POST /api/orders/{id}/pay` não recebe valor, dados de cartão ou gateway; em uma transação, usa o total gravado no pedido, registra a data/hora no pagamento e altera o pedido para pago. Uma segunda tentativa ou pedido fora de pendente retorna 409; outro usuário, inclusive admin de outro pedido, recebe 403. O pagamento não baixa estoque novamente. O dono e admins podem consultar o detalhe por `GET /api/orders/{id}`.
 
-Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. As antigas escritas manuais desses registros foram desabilitadas na API e na interface para preservar estoque, preços e pagamentos; envio e entrega permanecem pendentes; o cancelamento usa a ação própria descrita abaixo. A unicidade de `payments.order_id` está definida na migration original de pagamentos; o índice também foi aplicado à base local, preservando seus dados. Outras bases existentes precisam desse ajuste, pois editar uma migration já executada não altera o schema.
+Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. As antigas escritas manuais desses registros foram desabilitadas na API e na interface para preservar estoque, preços e pagamentos; envio e entrega permanecem pendentes; o cancelamento usa a ação própria descrita abaixo. A unicidade de `payments.order_id` está definida na migration original de pagamentos; instalações novas já recebem o índice. Bases antigas sem ele precisam desse ajuste, pois editar uma migration já executada não altera o schema.
 
 Os testes de backend também verificam autorização, valores enviados pelo cliente, limites monetários, preços congelados, repetição do checkout e do pagamento e rollback em falhas depois da baixa de estoque ou da confirmação do pagamento. A verificação HTTP em banco MySQL temporário cobre cookies reais e concorrência entre sessões, sem modificar os dados de compras do banco principal.
 
@@ -138,13 +139,23 @@ Abra **http://localhost/#my-orders** pelo link “Meus pedidos”. A lista mostr
 
 No detalhe `#order/ID`, o dono ou um admin pode escolher **Cancelar pedido** e confirmar no modal. `POST /api/orders/{id}/cancel` não exige corpo: quantidades, valores e status vêm do banco. A ação aceita somente pedidos pendentes, devolve o estoque dos itens e marca pedido e pagamento como cancelados, preservando os valores históricos. Produtos inativos ou excluídos logicamente recebem o estoque sem serem reativados. Pedidos antigos sem pagamento recebem um registro cancelado com o total original.
 
-A transação bloqueia pedido, pagamento, itens e produtos. Pagamento e cancelamento disputam o mesmo bloqueio do pedido: só uma ação pode vencer. Cancelar novamente ou cancelar pedido pago/enviado/entregue retorna 409, sem nova devolução. Sem sessão retorna 401, cliente que não é dono recebe 403, e pedido inexistente retorna 404. Falhas desfazem toda a operação. O cancelamento não repõe itens no carrinho. O endereço continua vinculado ao cadastro existente, sem cópia histórica nesta etapa.
+A transação bloqueia pedido, pagamento, itens e produtos. Pagamento e cancelamento disputam o mesmo bloqueio do pedido: só uma ação pode vencer. Cancelar novamente ou cancelar pedido pago/enviado/entregue retorna 409, sem nova devolução. Sem sessão retorna 401, cliente que não é dono recebe 403, e pedido inexistente retorna 404. Falhas desfazem toda a operação. O cancelamento não repõe itens no carrinho. O endereço original é preservado pelo versionamento descrito abaixo.
 
 Verifique com duas contas que o histórico é isolado; crie um pedido pendente, cancele e confira o estoque e o pagamento. Repita a chamada e tente pagar o pedido cancelado: ambas retornam 409. Os testes automatizados cobrem autorização, produtos excluídos, repetição e rollback. A verificação HTTP em MySQL temporário também confirmou seis disputas entre sessões (cancelamento duplo e pagamento contra cancelamento), com uma única ação vencedora e estoque consistente. SQLite não reproduz esses bloqueios.
 
+## Perfil e endereços da conta
+
+Abra **http://localhost/#profile** pelo link “Perfil” ou pelo ícone da conta. Visitantes vão ao login e retornam ao perfil após autenticar. `GET /api/me` consulta a conta e `PATCH /api/me` permite editar nome e e-mail, sempre da sessão atual. O e-mail deve ser único; alterar o e-mail exige `current_password` com a senha atual. A senha não é alterada nem retornada. Campos `role`, `id` e `password` são rejeitados com 422. Alterar o e-mail limpa a marca anterior de verificação, preserva a sessão e atualiza o cabeçalho.
+
+Na mesma tela, é possível cadastrar, editar e excluir os próprios endereços. `GET/POST /api/my/addresses` lista/cadastra; `PATCH/DELETE /api/my/addresses/{id}` edita/exclui. Endereço alheio, inexistente ou excluído retorna 404, inclusive para admins nessas rotas pessoais. `users_id` não é aceito em edições pessoais; o CRUD administrativo mantém sua autorização separada.
+
+A coluna `addresses.deleted_at` é criada diretamente em `2026_10_22_133440_create_addresses_table.php`, com `$table->softDeletes()`. Não há migration adicional para essa coluna. Em uma base de desenvolvimento antiga que possa ser apagada, execute `docker compose exec php php artisan migrate:fresh --seed --force`: isso apaga todos os dados e recria as tabelas com os exemplos. O banco local foi recriado dessa forma. Endereços excluídos ficam ocultos na conta e no checkout, mas continuam disponíveis nos pedidos. Ao editar um endereço já utilizado, a API devolve uma nova versão com **outro ID** e arquiva a anterior na mesma transação. O frontend utiliza o ID devolvido; novas compras usam a versão atual, enquanto pedidos existentes conservam os dados originais. A mesma proteção vale para edição e exclusão administrativas. Seeders não restauram os endereços excluídos.
+
+Os testes verificam isolamento entre contas, validação, senha atual na alteração de e-mail, manutenção da sessão, versionamento, checkout com o novo ID e rollback. Alterações no endereço feitas antes desta versão não podem ser reconstruídas retroativamente.
+
 ## Limites desta etapa
 
-Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Perfil do cliente e transições de envio/entrega permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
+Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Transições de envio/entrega permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
 
 Os CRUDs administrativos de catálogo, usuários, endereços e carrinhos permanecem disponíveis. Pedidos, seus itens e pagamentos são gerados pelo fluxo de compra e consultados pelo painel. Não use as credenciais de demonstração em produção.
 

@@ -8,6 +8,7 @@ import CartView from "./CartView.vue";
 import CheckoutView from "./CheckoutView.vue";
 import OrderView from "./OrderView.vue";
 import MyOrdersView from "./MyOrdersView.vue";
+import ProfileView from "./ProfileView.vue";
 
 const props = defineProps({
   section: String,
@@ -17,7 +18,7 @@ const props = defineProps({
   notice: String,
   signingOut: Boolean,
 });
-const emit = defineEmits(["navigate", "sign-out"]);
+const emit = defineEmits(["navigate", "sign-out", "user-updated"]);
 function orderCreated(order) {
   refreshCart();
   emit("navigate", `order/${order.id}`);
@@ -97,7 +98,7 @@ async function load() {
   loading.value = true;
   failedImages.value = new Set();
   const results = await Promise.allSettled([
-    ["product", "cart", "checkout", "order", "my-orders"].includes(props.section)
+    ["product", "cart", "checkout", "order", "my-orders", "profile"].includes(props.section)
       ? Promise.resolve({ data: [], meta: { total: 0, last_page: 1 } })
       : listCatalog({
           search: search.value,
@@ -130,7 +131,7 @@ watch([search, category, sort, page], load);
 watch(
   () => props.section,
   (section, previous) => {
-    if (["product", "cart", "checkout", "order", "my-orders"].includes(section) || ["product", "cart", "checkout", "order", "my-orders"].includes(previous)) load();
+    if (["product", "cart", "checkout", "order", "my-orders", "profile"].includes(section) || ["product", "cart", "checkout", "order", "my-orders", "profile"].includes(previous)) load();
     if (section === "cart") refreshCart();
   },
 );
@@ -183,12 +184,12 @@ onMounted(() => { load(); refreshCart(); });
           </a>
           <a
             :href="
-              user?.role === 'admin' ? '#overview' : user ? '#my-orders' : '#login'
+              user?.role === 'admin' ? '#overview' : user ? '#profile' : '#login'
             "
             :aria-label="
               user?.role === 'admin'
                 ? 'Acessar gestão'
-                : user ? 'Meus pedidos' : 'Entrar ou criar conta'
+                : user ? 'Meu perfil' : 'Entrar ou criar conta'
             "
           >
             <Icon name="users" :size="23" />
@@ -199,7 +200,7 @@ onMounted(() => { load(); refreshCart(); });
               ><strong>{{
                 user?.role === 'admin'
                   ? "Acessar gestão"
-                  : user ? "Meus pedidos" : "Entre ou cadastre-se"
+                  : user ? "Meu perfil" : "Entre ou cadastre-se"
               }}</strong></span
             >
           </a>
@@ -221,6 +222,7 @@ onMounted(() => { load(); refreshCart(); });
     </header>
     <nav class="store-navigation" aria-label="Categorias da loja">
       <div class="store-container store-nav-row">
+        <a v-if="user" href="#profile" :class="{ active: section === 'profile' }" :aria-current="section === 'profile' ? 'page' : undefined">Perfil</a>
         <a v-if="user" href="#my-orders" :class="{ active: section === 'my-orders' || section === 'order' }" :aria-current="section === 'my-orders' || section === 'order' ? 'page' : undefined">Meus pedidos</a>
         <a
           href="#categories"
@@ -263,6 +265,7 @@ onMounted(() => { load(); refreshCart(); });
       <CartView v-else-if="section === 'cart'" :cart="cart" :loading="cartLoading" :error="cartError" :user="user"
         @refresh="refreshCart" @updated="updatedCart" />
       <CheckoutView v-else-if="section === 'checkout'" @created="orderCreated" />
+      <ProfileView v-else-if="section === 'profile'" :key="user?.id" :user="user" @updated="emit('user-updated', $event)" />
       <MyOrdersView v-else-if="section === 'my-orders'" :key="user?.id" />
       <OrderView v-else-if="section === 'order'" :key="orderId" :order-id="orderId" :user="user" />
       <template v-else>

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Address;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class AddressService
 {
@@ -27,16 +28,31 @@ class AddressService
         return Address::findOrFail($id);
     }
 
-    public function update(int $id, array $data): Address
+    public function update(int $id, array $data, ?int $userId = null): Address
     {
-        $address = Address::findOrFail($id);
-        $address->update($data);
+        return DB::transaction(function () use ($id, $data, $userId) {
+            $address = Address::when($userId !== null, fn ($query) => $query->where('users_id', $userId))
+                ->lockForUpdate()->findOrFail($id);
+            $address->fill($data);
+            if ($address->isDirty() && $address->orders()->exists()) {
+                // Mantém o endereço original dos pedidos e oferece uma nova versão para entregas.
+                $replacement = $address->replicate();
+                $replacement->save();
+                $address->refresh()->delete();
 
-        return $address;
+                return $replacement;
+            }
+            $address->save();
+
+            return $address;
+        }, 3);
     }
 
-    public function delete(int $id): void
+    public function delete(int $id, ?int $userId = null): void
     {
-        Address::findOrFail($id)->delete();
+        DB::transaction(function () use ($id, $userId) {
+            Address::when($userId !== null, fn ($query) => $query->where('users_id', $userId))
+                ->lockForUpdate()->findOrFail($id)->delete();
+        }, 3);
     }
 }

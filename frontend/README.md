@@ -59,6 +59,8 @@ O cliente usa exclusivamente as rotas existentes:
 | Recursos     | `/api/products`, `/api/categories`, `/api/users`, `/api/addresses`, `/api/carts`, `/api/cart-items`, `/api/orders`, `/api/order-items`, `/api/payments` |
 | Checkout | `GET /api/checkout`, `POST /api/orders` |
 | Endereços da conta | `GET/POST /api/my/addresses` |
+| Perfil | `GET/PATCH /api/me` |
+| Edição e exclusão de endereços próprios | `PATCH/DELETE /api/my/addresses/:id` |
 | Histórico e cancelamento | `GET /api/my/orders`, `POST /api/orders/:id/cancel` |
 | Detalhe e pagamento | `GET /api/orders/:id`, `POST /api/orders/:id/pay` |
 
@@ -79,3 +81,7 @@ Na vitrine, busca, filtro por categoria, ordenação e paginação são executad
 No Compose, `proxy/default.conf` encaminha `/api/`, `/sanctum/`, `/images/` e `/storage/` para `php:8000` e o restante, incluindo WebSocket, para `frontend:5173`. O navegador usa somente **http://localhost**. O Laravel aceita essa origem no Sanctum; os cookies são HttpOnly, SameSite=Lax, sem domínio explícito e compatíveis com HTTP local. O cliente usa cookies de sessão e XSRF, com renovação após 419, e não armazena senha nem token de autenticação em localStorage.
 
 O build estático sozinho não inclui o proxy. Para hospedar `dist/`, configure o servidor com os mesmos encaminhamentos e os cookies para a origem de destino.
+
+## Perfil e endereços
+
+`#profile` exige sessão e reúne nome, e-mail e endereços da conta. Alterar e-mail exige a senha atual; os dados atualizados aparecem no cabeçalho sem sair da conta. É possível cadastrar, editar e excluir endereços com erros por campo e confirmação de exclusão. A API pode retornar outro ID ao editar um endereço usado em pedidos; a tela substitui o registro pelo retornado, preservando o endereço original das compras anteriores. A exclusão retira o endereço da lista de entrega sem remover o histórico. A coluna de exclusão lógica dos endereços está na migration original; consulte o README da raiz para recriar bases de desenvolvimento antigas.

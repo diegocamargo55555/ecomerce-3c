@@ -90,4 +90,14 @@ class DatabaseSeederTest extends TestCase
 
         return (int) $whole * 100 + (int) str_pad($fraction, 2, '0');
     }
+    public function test_repeating_seeders_does_not_restore_deleted_addresses(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $address = \App\Models\Address::first();
+        $address->delete();
+        $this->seed(DatabaseSeeder::class);
+        $this->assertDatabaseCount('addresses', 3);
+        $this->assertSoftDeleted('addresses', ['id' => $address->id]);
+    }
+
 }
