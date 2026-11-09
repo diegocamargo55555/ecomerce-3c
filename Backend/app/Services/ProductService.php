@@ -45,9 +45,9 @@ class ProductService
         return Product::create($data);
     }
 
-    public function findById(int $id): Product
+    public function findPublicById(int $id): Product
     {
-        return Product::findOrFail($id);
+        return Product::with('category')->where('is_active', true)->findOrFail($id);
     }
 
     public function update(int $id, array $data): Product

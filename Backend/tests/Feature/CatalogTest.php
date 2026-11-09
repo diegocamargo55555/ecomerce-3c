@@ -67,6 +67,33 @@ class CatalogTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors(['sort', 'page', 'per_page', 'category_id']);
     }
 
+    public function test_product_details_are_public_and_include_the_category(): void
+    {
+        $product = Product::where('name', 'Marine caro')->firstOrFail();
+        $this->getJson("/api/products/{$product->id}")
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Marine caro')
+            ->assertJsonPath('data.price', '100.00')
+            ->assertJsonPath('data.stock', 3)
+            ->assertJsonPath('data.category.name', 'Miniaturas');
+
+        $outOfStock = Product::where('stock', 0)->firstOrFail();
+        $this->getJson("/api/products/{$outOfStock->id}")->assertOk()->assertJsonPath('data.stock', 0);
+    }
+
+    public function test_inactive_deleted_and_missing_product_details_return_404_even_for_admin(): void
+    {
+        $ids = Product::withTrashed()->where(fn ($query) => $query
+            ->where('is_active', false)->orWhereNotNull('deleted_at'))->pluck('id');
+        foreach ([...$ids, 999999, 'invalid'] as $id) {
+            $this->getJson("/api/products/{$id}")->assertNotFound();
+        }
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        foreach ($ids as $id) {
+            $this->getJson("/api/products/{$id}")->assertNotFound();
+        }
+    }
+
     public function test_only_admin_can_list_all_products_including_inactive_ones(): void
     {
         $this->getJson('/api/admin/products')->assertUnauthorized();

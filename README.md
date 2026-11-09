@@ -53,7 +53,8 @@ O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, 
 | `GET /api/products`, `GET /api/categories`, `POST /api/register`, `POST /api/login` | Público |
 | `GET /api/admin/products` (todos os produtos, incluindo inativos) | Admin |
 | `GET /api/me`, `POST /api/logout` | Cliente ou admin autenticado |
-| `GET /api/products/:id`, `GET /api/categories/:id` | Cliente ou admin autenticado |
+| `GET /api/products/:id`, `POST /api/cart/items` | Público, com cookie de sessão para adicionar ao carrinho |
+| `GET /api/categories/:id` | Cliente ou admin autenticado |
 | Criação, edição e exclusão de produtos/categorias | Admin |
 | Todas as operações de users, addresses, carts, cart-items, orders, order-items e payments | Admin |
 
@@ -88,9 +89,17 @@ docker compose exec php php artisan db:seed
 
 Os cinco status estão definidos diretamente na migration que cria `orders`. A validação e os formulários administrativos reconhecem esses valores; as regras de transição continuam pendentes. Alterar a migration original não atualiza tabelas já criadas. A base local já aceita os cinco status e foi preservada.
 
+## Página pública do produto
+
+Clique na imagem, no nome ou em “Ver detalhes” para abrir `/#products/ID`. O endereço pode ser compartilhado e recarregado sem login. A página consulta `GET /api/products/{id}` e exibe nome, imagem, descrição, categoria, preço e estoque. Produtos inexistentes, inativos ou excluídos retornam 404. Produtos ativos sem estoque continuam visíveis, com a compra desabilitada.
+
+O botão “Adicionar ao carrinho” envia `product_id` e `quantity` para `POST /api/cart/items`. A API identifica a conta pela sessão autenticada ou gera um identificador aleatório guardado na sessão do visitante. O cliente não escolhe o carrinho. Quantidades repetidas são somadas no banco; a soma não pode ultrapassar o estoque e a quantidade deve ser inteira e positiva (422 em caso de erro). A operação usa transação e bloqueio dos registros, sem baixar estoque nesta etapa. O identificador de visitante não é retornado ao navegador; os cookies e o CSRF seguem o mesmo fluxo da autenticação.
+
+A tela completa do carrinho, seus totais e a fusão no login ainda estão pendentes. Adições anônimas e autenticadas permanecem em carrinhos separados até a implementação da fusão.
+
 ## Limites desta etapa
 
-Clientes podem navegar no catálogo e entrar/sair da conta. Perfil do cliente, carrinho público, fusão de carrinhos, checkout, pagamento e novas transições de pedidos permanecem pendentes. Os detalhes visuais de produtos continuam em modal e o endpoint de detalhe continua exigindo autenticação. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
+Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Perfil do cliente, tela completa do carrinho, fusão de carrinhos, checkout, pagamento e novas transições de pedidos permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
 
 Os CRUDs administrativos existentes foram preservados. Pedidos, itens e pagamentos ainda são registros separados, sem checkout transacional ou novas regras financeiras. Não use as credenciais de demonstração em produção.
 

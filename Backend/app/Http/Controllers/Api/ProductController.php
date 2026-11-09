@@ -17,7 +17,6 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
-        /*
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer', 'min:1'],
@@ -25,7 +24,6 @@ class ProductController extends Controller
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
         ]);
-        */
         return ProductResource::collection($this->productService->listCatalog($filters));
     }
 
@@ -43,7 +41,7 @@ class ProductController extends Controller
 
     public function show(string $id)
     {
-        return new ProductResource($this->productService->findById($id));
+        return new ProductResource($this->productService->findPublicById($id));
     }
 
     public function update(UpdateProductRequest $request, int $id)

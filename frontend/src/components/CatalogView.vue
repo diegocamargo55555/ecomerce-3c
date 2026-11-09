@@ -3,10 +3,11 @@ import { computed, onMounted, ref, watch } from "vue";
 import { listCatalog, listResource } from "../api/http.js";
 import { currency } from "../resources.js";
 import Icon from "./Icon.vue";
-import Modal from "./Modal.vue";
+import ProductView from "./ProductView.vue";
 
 const props = defineProps({
   section: String,
+  productId: String,
   user: Object,
   notice: String,
   signingOut: Boolean,
@@ -22,7 +23,6 @@ const category = ref("");
 const sort = ref("newest");
 const page = ref(1);
 const pagination = ref({ total: 0, last_page: 1, from: null, to: null });
-const selected = ref(null);
 const failedImages = ref(new Set());
 let loadVersion = 0;
 const categoryNames = computed(
@@ -58,15 +58,16 @@ function reset() {
 async function load() {
   const version = ++loadVersion;
   loading.value = true;
-  selected.value = null;
   failedImages.value = new Set();
   const results = await Promise.allSettled([
-    listCatalog({
-      search: search.value,
-      category: category.value,
-      sort: sort.value,
-      page: page.value,
-    }),
+    props.section === "product"
+      ? Promise.resolve({ data: [], meta: { total: 0, last_page: 1 } })
+      : listCatalog({
+          search: search.value,
+          category: category.value,
+          sort: sort.value,
+          page: page.value,
+        }),
     listResource("categories"),
   ]);
   if (version !== loadVersion) return;
@@ -91,8 +92,8 @@ watch([search, category, sort], () => {
 watch([search, category, sort, page], load);
 watch(
   () => props.section,
-  () => {
-    selected.value = null;
+  (section, previous) => {
+    if (section === "product" || previous === "product") load();
   },
 );
 onMounted(load);
@@ -214,6 +215,8 @@ onMounted(load);
       <p v-if="notice" class="notice store-notice" role="status">
         {{ notice }}
       </p>
+      <ProductView v-if="section === 'product'" :key="productId" :product-id="productId" />
+      <template v-else>
       <header class="catalog-intro">
         <div>
           <span class="eyebrow">3C COMMERCE / CATÁLOGO</span>
@@ -348,10 +351,10 @@ onMounted(load);
             :key="product.id"
             class="product-card"
           >
-            <button
+            <a
               class="catalog-product-image"
               :aria-label="`Ver detalhes de ${product.name}`"
-              @click="selected = product"
+              :href="`#products/${product.id}`"
             >
               <img
                 v-if="product.image_url && !failedImages.has(product.id)"
@@ -363,15 +366,15 @@ onMounted(load);
               <span v-else class="catalog-image-placeholder"
                 ><Icon name="box" :size="48" /><small>Sem imagem</small></span
               >
-            </button>
+            </a>
             <div class="product-card-body">
               <span class="product-card-category">{{
                 categoryName(product.category_id)
               }}</span>
               <h3>
-                <button :title="product.name" @click="selected = product">
+                <a :title="product.name" :href="`#products/${product.id}`">
                   {{ product.name }}
-                </button>
+                </a>
               </h3>
               <p class="product-card-description">{{ product.description }}</p>
               <span
@@ -386,13 +389,13 @@ onMounted(load);
               <strong class="catalog-price">{{
                 currency(product.price)
               }}</strong>
-              <button
+              <a
                 class="button catalog-details-button"
                 :aria-label="`Detalhes de ${product.name}`"
-                @click="selected = product"
+                :href="`#products/${product.id}`"
               >
                 Ver detalhes <Icon name="right" :size="17" />
-              </button>
+              </a>
             </div>
           </article>
         </div>
@@ -425,6 +428,7 @@ onMounted(load);
           </div>
         </nav>
       </template>
+      </template>
     </main>
 
     <footer class="store-footer">
@@ -439,42 +443,6 @@ onMounted(load);
         </nav>
       </div>
     </footer>
-
-    <Modal v-if="selected" :title="selected.name" @close="selected = null">
-      <div class="modal-body product-detail">
-        <div class="product-detail-image">
-          <img
-            v-if="selected.image_url && !failedImages.has(selected.id)"
-            :src="selected.image_url"
-            :alt="selected.name"
-            @error="failedImages.add(selected.id)"
-          /><span v-else class="catalog-image-placeholder"
-            ><Icon name="box" :size="60" /><small>Sem imagem</small></span
-          >
-        </div>
-        <span class="product-card-category">{{
-          categoryName(selected.category_id)
-        }}</span>
-        <strong class="catalog-price">{{ currency(selected.price) }}</strong>
-        <span
-          :class="[
-            'product-availability',
-            { unavailable: !available(selected) },
-          ]"
-          ><i />{{ available(selected) ? "Disponível" : "Indisponível" }}</span
-        >
-        <p>
-          {{
-            selected.description || "Este produto ainda não possui descrição."
-          }}
-        </p>
-      </div>
-      <footer class="modal-footer">
-        <button class="button primary" @click="selected = null">
-          Continuar explorando
-        </button>
-      </footer>
-    </Modal>
   </div>
 </template>
 
@@ -783,7 +751,7 @@ onMounted(load);
   letter-spacing: -0.2px;
   line-height: 1.5;
 }
-.product-card h3 button {
+.product-card h3 a {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -797,7 +765,7 @@ onMounted(load);
   text-align: left;
   overflow-wrap: anywhere;
 }
-.product-card h3 button:hover {
+.product-card h3 a:hover {
   color: var(--primary);
 }
 .product-card-description {
@@ -959,31 +927,6 @@ onMounted(load);
   color: var(--primary);
   text-decoration: underline;
 }
-.product-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.product-detail-image {
-  display: grid;
-  place-items: center;
-  height: 240px;
-  padding: 20px;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-.product-detail-image img {
-  max-width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.product-detail .catalog-price {
-  margin: 0;
-}
-.product-detail p {
-  white-space: pre-line;
-  overflow-wrap: anywhere;
-}
 @media (max-width: 1199px) {
   .catalog-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1113,7 +1056,7 @@ onMounted(load);
   .product-card h3 {
     font-size: 14px;
   }
-  .product-card h3 button {
+  .product-card h3 a {
     min-height: 42px;
   }
   .product-card-description {

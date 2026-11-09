@@ -106,6 +106,16 @@ export function resourceData(response) {
   return response?.data ?? response;
 }
 
+export async function getProduct(id) {
+  return resourceData(await api(`/api/products/${encodeURIComponent(id)}`));
+}
+
+export async function addToCart(productId, quantity) {
+  return resourceData(await api("/api/cart/items", {
+    method: "POST", body: { product_id: productId, quantity },
+  }));
+}
+
 export async function listResource(key) {
   const path = key === "products" ? "admin/products" : key;
   const data = resourceData(await api(`/api/${path}`));

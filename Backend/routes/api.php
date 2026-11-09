@@ -18,8 +18,10 @@ Route::post('register', [AuthController::class, 'register'])
 Route::post('login', [AuthController::class, 'login'])
     ->middleware('throttle:6,1');
 
-Route::apiResource('products', ProductController::class)->only(['index']);
+Route::apiResource('products', ProductController::class)
+    ->only(['index', 'show'])->whereNumber('product');
 Route::apiResource('categories', CategoryController::class)->only(['index']);
+Route::post('cart/items', [CartItemController::class, 'add']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('me', [AuthController::class, 'me']);
@@ -27,8 +29,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('categories', CategoryController::class)
         ->only(['show'])->whereNumber('category');
-    Route::apiResource('products', ProductController::class)
-        ->only(['show'])->whereNumber('product');
 
     Route::middleware('can:admin')->group(function () {
         Route::get('admin/products', [ProductController::class, 'adminIndex']);

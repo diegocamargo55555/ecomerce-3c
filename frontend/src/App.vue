@@ -21,6 +21,9 @@ const starting = ref(true);
 const startError = ref("");
 const notice = ref("");
 const page = ref("products");
+const productId = computed(() =>
+  page.value.startsWith("products/") ? page.value.slice(9) : "",
+);
 const menuOpen = ref(false);
 const compactLayout = window.matchMedia("(max-width: 760px)");
 const mobile = ref(compactLayout.matches);
@@ -33,13 +36,13 @@ const title = computed(
   () =>
     page.value === "login"
       ? "Sua conta"
-      : resources[resourceKey.value]?.title || "Visão geral",
+      : productId.value ? "Produto" : resources[resourceKey.value]?.title || "Visão geral",
 );
 const activeKey = computed(
   () => resources[resourceKey.value]?.parent || resourceKey.value,
 );
 const publicPage = computed(() =>
-  ["products", "categories"].includes(page.value),
+  ["products", "categories"].includes(page.value) || !!productId.value,
 );
 const isAdmin = computed(() => user.value?.role === "admin");
 
@@ -54,6 +57,7 @@ function syncRoute() {
   const key = window.location.hash.slice(1);
   page.value =
     Object.hasOwn(resources, key) ||
+    /^products\/[^/]+$/.test(key) ||
     ["login", "overview", "manage-products", "manage-categories"].includes(key)
       ? key
       : "products";
@@ -178,7 +182,8 @@ onBeforeUnmount(() => {
   />
   <CatalogView
     v-else-if="publicPage"
-    :section="page"
+    :section="productId ? 'product' : page"
+    :product-id="productId"
     :user="user"
     :notice="notice"
     :signing-out="signingOut"
