@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>3C Commerce · Documentação da API</title>
+    <link rel="icon" type="image/png" href="/api/docs/assets/favicon-32x32.png" />
+    <link rel="stylesheet" href="/api/docs/assets/swagger-ui.css" />
+    <style>
+      body { margin: 0; background: #fafafa; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="/api/docs/assets/swagger-ui-bundle.js"></script>
+    <script>
+      // A API autentica por sessão/cookies do Sanctum. O "Try it out" roda na
+      // mesma origem da loja, então reutiliza os cookies do navegador e envia
+      // o token CSRF nas escritas, exatamente como o frontend faz.
+      function xsrfToken() {
+        const cookie = document.cookie
+          .split("; ")
+          .find((value) => value.startsWith("XSRF-TOKEN="));
+        return cookie ? decodeURIComponent(cookie.slice("XSRF-TOKEN=".length)) : "";
+      }
+
+      async function withSession(request) {
+        request.credentials = "include";
+        request.headers = request.headers || {};
+        request.headers["X-Requested-With"] = "XMLHttpRequest";
+        if (!request.headers.Accept) request.headers.Accept = "application/json";
+
+        const method = (request.method || "GET").toUpperCase();
+        if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+          if (!xsrfToken()) {
+            await fetch("/sanctum/csrf-cookie", {
+              credentials: "include",
+              headers: { Accept: "application/json" },
+            });
+          }
+          request.headers["X-XSRF-TOKEN"] = xsrfToken();
+        }
+        return request;
+      }
+
+      window.ui = SwaggerUIBundle({
+        url: "/api/docs/openapi.yaml",
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        withCredentials: true,
+        tryItOutEnabled: true,
+        persistAuthorization: false,
+        validatorUrl: null,
+        docExpansion: "list",
+        defaultModelsExpandDepth: 0,
+        presets: [SwaggerUIBundle.presets.apis],
+        layout: "BaseLayout",
+        requestInterceptor: withSession,
+      });
+    </script>
+  </body>
+</html>

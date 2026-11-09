@@ -1,0 +1,1570 @@
+openapi: 3.0.3
+info:
+  title: 3C Commerce API
+  version: 1.0.0
+  description: |
+    API REST da loja virtual 3C Commerce (Laravel, padrão MVC + Service Layer).
+
+    ## Autenticação
+    A API usa **sessão por cookies do Laravel Sanctum** (guard `web`). Não há tokens
+    Bearer nem API keys: o model `User` não emite tokens pessoais.
+
+    1. `GET /sanctum/csrf-cookie` grava os cookies `XSRF-TOKEN` e `laravel-session`.
+    2. Toda escrita (`POST`, `PUT`, `PATCH`, `DELETE`) deve enviar o valor do cookie
+       `XSRF-TOKEN` no cabeçalho `X-XSRF-TOKEN`; sem ele a resposta é **419**.
+    3. `POST /api/login` ou `POST /api/register` autentica a sessão. A sessão é
+       regenerada, portanto os cookies mudam após o login.
+    4. A sessão só é reconhecida em requisições cuja origem (`Origin`/`Referer`)
+       esteja em `SANCTUM_STATEFUL_DOMAINS`.
+
+    Nesta página, o **Try it out** já faz isso sozinho: usa o mesmo host da loja,
+    preserva os cookies do navegador e busca/envia o CSRF nas escritas. Para testar
+    rotas protegidas, execute antes `POST /api/login` aqui mesmo (ou entre pela loja
+    na mesma janela). O botão *Authorize* não é necessário: o navegador não permite
+    definir o cookie de sessão manualmente.
+
+    ## Papéis e autorização
+    - **Público**: sem sessão.
+    - **Autenticado**: middleware `auth:sanctum` (cliente ou admin). Sem sessão → **401**.
+    - **Admin**: `auth:sanctum` + Gate `admin` (`users.role === 'admin'`). Cliente → **403**.
+    - Regras por dono (pedido, endereço) são verificadas nos Services e descritas em cada operação.
+
+    Os papéis existentes são `cliente` (padrão) e `admin`. Não há endpoint que altere o papel.
+
+    ## Formatos de resposta
+    - Respostas de Resources vêm envelopadas em `{ "data": ... }`.
+    - As criações administrativas (`POST` de produtos, categorias, usuários, endereços,
+      carrinhos e itens de carrinho) devolvem o **model direto, sem envelope**.
+    - Valores monetários são `decimal(10,2)` e trafegam como **string** (ex.: `"129.90"`).
+    - Erros: `{ "message": "..." }`; validação (422) acrescenta `errors` por campo.
+      Com `APP_DEBUG=true` os erros incluem também campos de depuração (`exception`, `trace`).
+
+    ## Regras de negócio principais
+    - Status do pedido: `pendente` (aguardando pagamento) → `pago` → `enviado` → `entregue`;
+      `cancelado` somente a partir de `pendente`. Transição inválida → **409**.
+    - Frete fixo de R$ 20,00 por pedido, calculado no servidor.
+    - Fusão de carrinhos no login e no cadastro: o carrinho de visitante da sessão é somado
+      ao da conta, limitado ao estoque; ajustes e remoções voltam em `cart_warnings`.
+servers:
+  - url: /
+    description: Mesma origem da loja (proxy Nginx)
+tags:
+  - name: Autenticação
+    description: Sessão Sanctum, cadastro, login e logout.
+  - name: Perfil
+    description: Dados da conta autenticada.
+  - name: Catálogo
+    description: Produtos e categorias visíveis na loja.
+  - name: Carrinho
+    description: Carrinho atual da sessão (visitante ou conta).
+  - name: Pedidos
+    description: Checkout, pedidos da conta, pagamento simulado e cancelamento.
+  - name: Endereços
+    description: Endereços da conta autenticada.
+  - name: Admin · Catálogo
+    description: Gestão de produtos e categorias. Requer papel `admin`.
+  - name: Admin · Pedidos
+    description: Consulta de pedidos, itens e pagamentos e avanço de status. Requer papel `admin`.
+  - name: Admin · Usuários
+    description: CRUD de usuários. Requer papel `admin`.
+  - name: Admin · Endereços
+    description: CRUD de endereços de qualquer usuário. Requer papel `admin`.
+  - name: Admin · Carrinhos
+    description: CRUD direto de carrinhos e itens. Requer papel `admin`.
+
+security:
+  - sessionCookie: []
+
+paths:
+  /sanctum/csrf-cookie:
+    get:
+      tags: [Autenticação]
+      summary: Inicia a sessão e emite o cookie CSRF
+      description: Rota do Sanctum. Grava os cookies `XSRF-TOKEN` e `laravel-session`.
+      security: []
+      responses:
+        "204":
+          description: Cookies emitidos; sem corpo.
+
+  /api/register:
+    post:
+      tags: [Autenticação]
+      summary: Cria uma conta de cliente e autentica a sessão
+      description: |
+        Cria o usuário com papel `cliente`, funde o carrinho de visitante da sessão
+        ao carrinho da conta, autentica e regenera a sessão. Enviar `role` retorna 422.
+        Limite: 6 requisições por minuto.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, password_confirmation]
+              properties:
+                name: { type: string, maxLength: 255, example: Maria Silva }
+                email: { type: string, format: email, maxLength: 255, example: maria@example.com }
+                password: { type: string, minLength: 8, example: password }
+                password_confirmation: { type: string, example: password }
+      responses:
+        "201":
+          $ref: "#/components/responses/AuthSuccess"
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/login:
+    post:
+      tags: [Autenticação]
+      summary: Autentica a sessão
+      description: |
+        Valida as credenciais, funde o carrinho de visitante da sessão ao carrinho da
+        conta, autentica e regenera a sessão. Credenciais inválidas retornam 422 em
+        `errors.email` e preservam o carrinho de visitante. Limite: 6 requisições por minuto.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: admin@example.com }
+                password: { type: string, example: password }
+      responses:
+        "200":
+          $ref: "#/components/responses/AuthSuccess"
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/logout:
+    post:
+      tags: [Autenticação]
+      summary: Encerra e invalida a sessão
+      description: O carrinho da conta permanece no banco.
+      responses:
+        "204": { description: Sessão encerrada; sem corpo. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+  /api/me:
+    get:
+      tags: [Perfil]
+      summary: Dados do usuário autenticado
+      responses:
+        "200": { $ref: "#/components/responses/UserData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+    patch:
+      tags: [Perfil]
+      summary: Atualiza nome e e-mail da própria conta
+      description: |
+        Alterar o e-mail exige `current_password` e limpa `email_verified_at`.
+        Enviar `role`, `id` ou `password` retorna 422. A senha não é alterada por esta rota.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 255 }
+                email: { type: string, format: email, maxLength: 255, description: Único entre os usuários. }
+                current_password: { type: string, description: Obrigatória quando o e-mail muda. }
+      responses:
+        "200": { $ref: "#/components/responses/UserData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/products:
+    get:
+      tags: [Catálogo]
+      summary: Lista paginada de produtos ativos
+      description: |
+        Retorna somente produtos com `is_active = true` e não excluídos. Produtos sem
+        estoque continuam na lista (`stock: 0`). A categoria não é incluída nos itens.
+      security: []
+      parameters:
+        - name: search
+          in: query
+          description: Busca por nome, descrição ou nome da categoria.
+          schema: { type: string, maxLength: 255 }
+        - name: category_id
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: sort
+          in: query
+          description: "`newest` ordena por criação, do mais recente."
+          schema: { type: string, enum: [newest, price-asc, price-desc, name], default: newest }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 8 }
+      responses:
+        "200":
+          description: Página de produtos.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Product" }
+                  links: { $ref: "#/components/schemas/PaginationLinks" }
+                  meta: { $ref: "#/components/schemas/PaginationMeta" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    post:
+      tags: [Admin · Catálogo]
+      summary: Cria um produto
+      description: |
+        **Admin.** Responde com o model direto (sem `data`). Campos opcionais não
+        enviados (`stock`, `is_active`, `image_url`) não aparecem na resposta, embora o
+        banco aplique os padrões (`stock = 0`, `is_active = true`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "201":
+          description: Produto criado (model sem envelope).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductModel" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/products/{product}:
+    parameters:
+      - { name: product, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Catálogo]
+      summary: Detalhe de um produto ativo
+      description: Inclui a categoria. Produto inexistente, inativo ou excluído retorna 404.
+      security: []
+      responses:
+        "200":
+          description: Produto.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - $ref: "#/components/schemas/Product"
+                      - type: object
+                        properties:
+                          category: { $ref: "#/components/schemas/Category" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put: &productUpdate
+      tags: [Admin · Catálogo]
+      summary: Atualiza um produto
+      description: |
+        **Admin.** `PUT` e `PATCH` são equivalentes: todos os campos são opcionais.
+        Use para alterar estoque e ativar/desativar. Produto excluído retorna 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductUpdate" }
+      responses:
+        "200":
+          description: Produto atualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Product" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    patch: *productUpdate
+    delete:
+      tags: [Admin · Catálogo]
+      summary: Exclui um produto (exclusão lógica)
+      description: |
+        **Admin.** Soft delete: o registro permanece no banco, preservando pedidos antigos.
+        O produto deixa de aparecer no catálogo e na listagem administrativa.
+      responses:
+        "204": { description: Excluído; sem corpo. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+  /api/admin/products:
+    get:
+      tags: [Admin · Catálogo]
+      summary: Lista todos os produtos, inclusive inativos
+      description: "**Admin.** Sem paginação e sem filtros. Produtos excluídos logicamente não são listados."
+      responses:
+        "200":
+          description: Lista completa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Product" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/categories:
+    get:
+      tags: [Catálogo]
+      summary: Lista todas as categorias
+      description: Sem paginação.
+      security: []
+      responses:
+        "200":
+          description: Categorias.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Category" }
+    post:
+      tags: [Admin · Catálogo]
+      summary: Cria uma categoria
+      description: "**Admin.** Responde com o model direto (sem `data`)."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug]
+              properties:
+                name: { type: string, maxLength: 255 }
+                slug: { type: string, maxLength: 255, description: Único. }
+                description: { type: string, nullable: true }
+      responses:
+        "201":
+          description: Categoria criada (model sem envelope).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Category" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/categories/{category}:
+    parameters:
+      - { name: category, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Catálogo]
+      summary: Detalhe de uma categoria
+      description: "**Autenticado** (cliente ou admin) — diferente da listagem, que é pública."
+      responses:
+        "200": { $ref: "#/components/responses/CategoryData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put: &categoryUpdate
+      tags: [Admin · Catálogo]
+      summary: Atualiza uma categoria
+      description: "**Admin.** `PUT` e `PATCH` são equivalentes: todos os campos são opcionais."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 255 }
+                slug: { type: string, maxLength: 255, description: Único. }
+                description: { type: string, nullable: true }
+      responses:
+        "200": { $ref: "#/components/responses/CategoryData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    patch: *categoryUpdate
+    delete:
+      tags: [Admin · Catálogo]
+      summary: Exclui uma categoria
+      description: |
+        **Admin.** Exclusão física. Uma categoria com produtos vinculados (inclusive
+        produtos excluídos logicamente) não pode ser removida: a chave estrangeira do
+        banco rejeita a operação e, como esse erro ainda não é tratado, a resposta atual é **500**.
+      responses:
+        "204": { description: Excluída; sem corpo. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "500": { $ref: "#/components/responses/ForeignKeyError" }
+
+  /api/cart:
+    get:
+      tags: [Carrinho]
+      summary: Carrinho atual com itens e totais
+      description: |
+        Com sessão autenticada, devolve o carrinho da conta (no máximo um por usuário).
+        Sem login, devolve o carrinho de visitante identificado por um token aleatório
+        guardado na sessão do servidor (nunca exposto). O carrinho é criado na primeira
+        consulta. Subtotais e total usam os preços atuais do banco e não incluem frete.
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/CurrentCart" }
+
+  /api/cart/items:
+    post:
+      tags: [Carrinho]
+      summary: Adiciona um produto ao carrinho atual
+      description: |
+        Funciona com ou sem login. Se o produto já está no carrinho, a quantidade é
+        somada na mesma linha. A soma não pode ultrapassar o estoque (422). Produto
+        inexistente, inativo ou excluído retorna 404. Não baixa estoque.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id, quantity]
+              properties:
+                product_id: { type: integer, minimum: 1, example: 1 }
+                quantity: { type: integer, minimum: 1, example: 1 }
+      responses:
+        "200":
+          description: Quantidade somada a um item que já existia.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartItemEnvelope" }
+        "201":
+          description: Novo item criado no carrinho.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartItemEnvelope" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/cart/items/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID do item do carrinho (não do produto).
+        schema: { type: integer }
+    patch:
+      tags: [Carrinho]
+      summary: Altera a quantidade de um item do carrinho atual
+      description: |
+        `quantity: 0` remove o item. Quantidade acima do estoque ou produto inativo
+        retorna 422. Item que não pertence ao carrinho da sessão retorna 404.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 0, example: 2 }
+      responses:
+        "200": { $ref: "#/components/responses/CurrentCart" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Carrinho]
+      summary: Remove um item do carrinho atual
+      description: Devolve o carrinho atualizado. Item de outro carrinho retorna 404.
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/CurrentCart" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+  /api/checkout:
+    get:
+      tags: [Pedidos]
+      summary: Revisão do pedido antes de confirmar
+      description: |
+        **Autenticado.** Calcula no servidor itens, subtotal, frete fixo (R$ 20,00) e
+        total do carrinho da conta. Carrinho vazio, produto indisponível ou estoque
+        insuficiente retornam 422 em `errors.cart`, informando o produto.
+      responses:
+        "200":
+          description: Resumo do checkout.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/CheckoutReview" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/orders:
+    get:
+      tags: [Admin · Pedidos]
+      summary: Lista todos os pedidos da loja
+      description: |
+        **Admin.** Sem paginação e sem filtros no servidor; itens, endereço e pagamentos
+        não são incluídos nesta listagem.
+      responses:
+        "200":
+          description: Todos os pedidos.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/OrderSummary" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Pedidos]
+      summary: Cria o pedido a partir do carrinho da conta
+      description: |
+        **Autenticado.** Em uma única transação: revalida os produtos, cria o pedido
+        `pendente`, congela nome e preço em cada item, decrementa o estoque, cria o
+        pagamento `pendente` e esvazia o carrinho. Qualquer falha desfaz tudo.
+        Apenas `address_id` é lido; valores e status enviados pelo cliente são ignorados.
+
+        - Carrinho vazio, produto indisponível ou estoque insuficiente → 422 (`errors.cart`).
+        - Endereço de outro usuário ou excluído → 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address_id]
+              properties:
+                address_id: { type: integer, description: Endereço da própria conta. }
+      responses:
+        "201": { $ref: "#/components/responses/OrderDetail" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/my/orders:
+    get:
+      tags: [Pedidos]
+      summary: Pedidos da conta autenticada
+      description: |
+        **Autenticado.** Somente os pedidos do próprio usuário (inclusive para admins),
+        dos mais recentes aos mais antigos, sem paginação e sem itens.
+      responses:
+        "200":
+          description: Pedidos da conta.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/OrderSummary" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+  /api/orders/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Pedidos]
+      summary: Detalhe do pedido
+      description: "**Dono do pedido ou admin.** Outro usuário recebe 403."
+      responses:
+        "200": { $ref: "#/components/responses/OrderDetail" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/orders/{id}/pay:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    post:
+      tags: [Pedidos]
+      summary: Pagamento simulado
+      description: |
+        **Somente o dono do pedido** (um admin que não seja o dono recebe 403).
+        Sem corpo: nenhum dado de cartão ou gateway. Marca o pedido como `pago` e
+        registra `paid_at` no pagamento, usando o total gravado. Pedido que não está
+        `pendente` retorna 409.
+      responses:
+        "200": { $ref: "#/components/responses/OrderDetail" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+  /api/orders/{id}/cancel:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    post:
+      tags: [Pedidos]
+      summary: Cancela o pedido e devolve o estoque
+      description: |
+        **Dono do pedido ou admin.** Sem corpo. Aceita somente pedidos `pendente`:
+        devolve o estoque dos itens e marca pedido e pagamento como `cancelado`.
+        Qualquer outro status retorna 409, sem nova devolução.
+      responses:
+        "200": { $ref: "#/components/responses/OrderDetail" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+  /api/admin/orders/{id}/status:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    patch:
+      tags: [Admin · Pedidos]
+      summary: Avança o status do pedido
+      description: |
+        **Admin.** Transições aceitas: `pago → enviado` e `enviado → entregue`.
+        Qualquer outro status válido (repetir, pular, retroceder, ou `pendente`/`pago`/
+        `cancelado`) retorna 409. Status ausente ou desconhecido retorna 422.
+        Não altera estoque, itens, valores nem pagamento.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pendente, pago, enviado, entregue, cancelado]
+                  example: enviado
+      responses:
+        "200": { $ref: "#/components/responses/OrderDetail" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/order-items:
+    get:
+      tags: [Admin · Pedidos]
+      summary: Lista todos os itens de pedidos
+      description: "**Admin.** Somente leitura, sem paginação."
+      responses:
+        "200":
+          description: Itens.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/OrderItem" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/order-items/{order_item}:
+    parameters:
+      - { name: order_item, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Pedidos]
+      summary: Detalhe de um item de pedido
+      description: "**Admin.**"
+      responses:
+        "200":
+          description: Item.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/OrderItem" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/payments:
+    get:
+      tags: [Admin · Pedidos]
+      summary: Lista todos os pagamentos
+      description: "**Admin.** Somente leitura, sem paginação."
+      responses:
+        "200":
+          description: Pagamentos.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/payments/{payment}:
+    parameters:
+      - { name: payment, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Pedidos]
+      summary: Detalhe de um pagamento
+      description: "**Admin.**"
+      responses:
+        "200":
+          description: Pagamento.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/my/addresses:
+    get:
+      tags: [Endereços]
+      summary: Endereços da conta autenticada
+      description: "**Autenticado.** Do mais recente ao mais antigo; endereços excluídos não aparecem."
+      responses:
+        "200": { $ref: "#/components/responses/AddressList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+    post:
+      tags: [Endereços]
+      summary: Cadastra um endereço na própria conta
+      description: "**Autenticado.** O dono é sempre o usuário da sessão; enviar `users_id` retorna 422."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddressInput" }
+      responses:
+        "201": { $ref: "#/components/responses/AddressData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/my/addresses/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    patch:
+      tags: [Endereços]
+      summary: Edita um endereço próprio
+      description: |
+        **Somente o proprietário** (inclusive para admins nesta rota). Endereço alheio,
+        inexistente ou excluído retorna 404. Se o endereço já foi usado em um pedido,
+        a API arquiva o original e devolve uma nova versão com **outro `id`**,
+        preservando o endereço dos pedidos antigos. Enviar `users_id` retorna 422.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddressUpdate" }
+      responses:
+        "200": { $ref: "#/components/responses/AddressData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Endereços]
+      summary: Exclui um endereço próprio (exclusão lógica)
+      description: "**Somente o proprietário.** Soft delete: pedidos existentes continuam exibindo o endereço."
+      responses:
+        "204": { description: Excluído; sem corpo. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+  /api/addresses:
+    get:
+      tags: [Admin · Endereços]
+      summary: Lista os endereços de todos os usuários
+      description: "**Admin.** Sem paginação. A resposta não expõe `users_id`."
+      responses:
+        "200": { $ref: "#/components/responses/AddressList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Admin · Endereços]
+      summary: Cadastra um endereço para qualquer usuário
+      description: "**Admin.** `users_id` é obrigatório. Responde com o model direto (sem `data`)."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required: [users_id]
+                  properties:
+                    users_id: { type: integer }
+                - $ref: "#/components/schemas/AddressInput"
+      responses:
+        "201":
+          description: Endereço criado (model sem envelope, com `users_id`).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Address"
+                  - type: object
+                    properties:
+                      users_id: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/addresses/{address}:
+    parameters:
+      - { name: address, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Endereços]
+      summary: Detalhe de um endereço
+      description: "**Admin.**"
+      responses:
+        "200": { $ref: "#/components/responses/AddressData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put: &addressUpdate
+      tags: [Admin · Endereços]
+      summary: Atualiza um endereço
+      description: |
+        **Admin.** `PUT` e `PATCH` são equivalentes: todos os campos são opcionais.
+        Assim como na rota pessoal, um endereço já usado em pedido é arquivado e a
+        resposta traz uma nova versão com outro `id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  properties:
+                    users_id: { type: integer }
+                - $ref: "#/components/schemas/AddressUpdate"
+      responses:
+        "200": { $ref: "#/components/responses/AddressData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    patch: *addressUpdate
+    delete:
+      tags: [Admin · Endereços]
+      summary: Exclui um endereço (exclusão lógica)
+      description: "**Admin.** Soft delete."
+      responses:
+        "204": { description: Excluído; sem corpo. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+  /api/users:
+    get:
+      tags: [Admin · Usuários]
+      summary: Lista todos os usuários
+      description: "**Admin.** Sem paginação."
+      responses:
+        "200":
+          description: Usuários.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Admin · Usuários]
+      summary: Cria um usuário cliente
+      description: |
+        **Admin.** O usuário é sempre criado como `cliente`; enviar `role` retorna 422.
+        Não exige confirmação de senha. Responde com o model direto (sem `data`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, maxLength: 255 }
+                email: { type: string, format: email, maxLength: 255, description: Único. }
+                password: { type: string, minLength: 8 }
+      responses:
+        "201":
+          description: Usuário criado (model sem envelope; a senha nunca é retornada).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/User"
+                  - $ref: "#/components/schemas/Timestamps"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/users/{user}:
+    parameters:
+      - { name: user, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Usuários]
+      summary: Detalhe de um usuário
+      description: "**Admin.**"
+      responses:
+        "200": { $ref: "#/components/responses/UserData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put: &userUpdate
+      tags: [Admin · Usuários]
+      summary: Atualiza um usuário
+      description: |
+        **Admin.** `PUT` e `PATCH` são equivalentes: todos os campos são opcionais.
+        Enviar `role` retorna 422 — o papel não pode ser alterado pela API.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 255 }
+                email: { type: string, format: email, maxLength: 255, description: Único. }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200": { $ref: "#/components/responses/UserData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    patch: *userUpdate
+    delete:
+      tags: [Admin · Usuários]
+      summary: Exclui um usuário
+      description: |
+        **Admin.** Exclusão física; os endereços do usuário são removidos em cascata.
+        Usuário com pedidos ou carrinho não pode ser removido: a chave estrangeira do
+        banco rejeita a operação e, como esse erro não é tratado, a resposta atual é **500**.
+      responses:
+        "204": { description: Excluído; sem corpo. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "500": { $ref: "#/components/responses/ForeignKeyError" }
+
+  /api/carts:
+    get:
+      tags: [Admin · Carrinhos]
+      summary: Lista todos os carrinhos
+      description: "**Admin.** Sem paginação e sem itens; inclui `guest_token` dos carrinhos de visitante."
+      responses:
+        "200":
+          description: Carrinhos.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/CartRecord" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Admin · Carrinhos]
+      summary: Cria um carrinho
+      description: "**Admin.** Responde com o model direto (sem `data`)."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CartInput" }
+      responses:
+        "201":
+          description: Carrinho criado (model sem envelope; só os campos enviados, `id` e datas).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartRecord" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/carts/{cart}:
+    parameters:
+      - { name: cart, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Carrinhos]
+      summary: Detalhe de um carrinho
+      description: "**Admin.** Sem itens."
+      responses:
+        "200": { $ref: "#/components/responses/CartRecordData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put: &cartUpdate
+      tags: [Admin · Carrinhos]
+      summary: Atualiza um carrinho
+      description: "**Admin.** `PUT` e `PATCH` são equivalentes: todos os campos são opcionais."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CartInput" }
+      responses:
+        "200": { $ref: "#/components/responses/CartRecordData" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    patch: *cartUpdate
+    delete:
+      tags: [Admin · Carrinhos]
+      summary: Exclui um carrinho
+      description: "**Admin.** Os itens do carrinho são removidos em cascata."
+      responses:
+        "204": { description: Excluído; sem corpo. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+  /api/cart-items:
+    get:
+      tags: [Admin · Carrinhos]
+      summary: Lista os itens de todos os carrinhos
+      description: "**Admin.** Sem paginação."
+      responses:
+        "200":
+          description: Itens.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/CartItem" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Admin · Carrinhos]
+      summary: Cria um item em um carrinho
+      description: |
+        **Admin.** O par `cart_id` + `product_id` deve ser único (422). Diferente de
+        `POST /api/cart/items`, esta rota não valida estoque. Responde com o model direto (sem `data`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cart_id, product_id, quantity]
+              properties:
+                cart_id: { type: integer }
+                product_id: { type: integer }
+                quantity: { type: integer, minimum: 1 }
+      responses:
+        "201":
+          description: Item criado (model sem envelope).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartItem" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /api/cart-items/{cart_item}:
+    parameters:
+      - { name: cart_item, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Admin · Carrinhos]
+      summary: Detalhe de um item de carrinho
+      description: "**Admin.**"
+      responses:
+        "200":
+          description: Item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartItemEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put: &cartItemUpdate
+      tags: [Admin · Carrinhos]
+      summary: Atualiza um item de carrinho
+      description: |
+        **Admin.** `PUT` e `PATCH` são equivalentes: todos os campos são opcionais.
+        O par `cart_id` + `product_id` deve continuar único. Não valida estoque.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cart_id: { type: integer }
+                product_id: { type: integer }
+                quantity: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Item atualizado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartItemEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    patch: *cartItemUpdate
+    delete:
+      tags: [Admin · Carrinhos]
+      summary: Exclui um item de carrinho
+      description: "**Admin.**"
+      responses:
+        "204": { description: Excluído; sem corpo. }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: laravel-session
+      description: |
+        Cookie de sessão do Laravel (Sanctum, guard `web`), emitido por
+        `/sanctum/csrf-cookie` e autenticado por `POST /api/login` ou `POST /api/register`.
+        O navegador o envia sozinho; não é preciso preencher este campo. O nome do
+        cookie deriva de `APP_NAME` (`laravel-session` na configuração padrão).
+
+  responses:
+    Unauthenticated:
+      description: Sem sessão autenticada.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { message: Unauthenticated. }
+    Forbidden:
+      description: Usuário autenticado sem permissão (não é admin ou não é o dono do recurso).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { message: This action is unauthorized. }
+    NotFound:
+      description: Registro inexistente ou não acessível nesta rota.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Operação incompatível com o status atual do pedido.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { message: Este pedido não está aguardando pagamento. }
+    CsrfMismatch:
+      description: Token CSRF ausente ou expirado. Renove em `/sanctum/csrf-cookie`.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { message: CSRF token mismatch. }
+    ValidationError:
+      description: Dados inválidos ou regra de negócio violada.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ValidationError" }
+    TooManyRequests:
+      description: Limite de 6 requisições por minuto excedido.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { message: Too Many Attempts. }
+    ForeignKeyError:
+      description: Registro com vínculos no banco; a violação de chave estrangeira não é tratada pela API.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    AuthSuccess:
+      description: Sessão autenticada. `cart_warnings` lista os ajustes feitos na fusão do carrinho.
+      headers:
+        Cache-Control:
+          schema: { type: string, example: no-store }
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: "#/components/schemas/User" }
+              cart_warnings:
+                type: array
+                items: { type: string }
+                example: ["Necrons: Warriors: quantidade ajustada de 7 para 5 por limite de estoque."]
+    UserData:
+      description: Usuário.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: "#/components/schemas/User" }
+    CategoryData:
+      description: Categoria.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: "#/components/schemas/Category" }
+    CurrentCart:
+      description: Carrinho atual com itens e totais calculados no servidor.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: "#/components/schemas/CurrentCart" }
+    OrderDetail:
+      description: Pedido com itens, endereço e pagamentos.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: "#/components/schemas/Order" }
+    AddressData:
+      description: Endereço.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: "#/components/schemas/Address" }
+    AddressList:
+      description: Endereços.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items: { $ref: "#/components/schemas/Address" }
+    CartRecordData:
+      description: Carrinho (registro, sem itens).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: { $ref: "#/components/schemas/CartRecord" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message: { type: string }
+    ValidationError:
+      type: object
+      properties:
+        message: { type: string, example: The email field is required. }
+        errors:
+          type: object
+          description: Mensagens por campo. Regras de carrinho/checkout usam as chaves `quantity` e `cart`.
+          additionalProperties:
+            type: array
+            items: { type: string }
+          example:
+            email: [The email field is required.]
+    Timestamps:
+      type: object
+      properties:
+        created_at: { type: string, format: date-time, example: "2026-11-09T07:53:13.000000Z" }
+        updated_at: { type: string, format: date-time, example: "2026-11-09T07:53:13.000000Z" }
+    Money:
+      type: string
+      pattern: '^\d+\.\d{2}$'
+      example: "129.90"
+    OrderStatus:
+      type: string
+      enum: [pendente, pago, enviado, entregue, cancelado]
+      description: "`pendente` significa aguardando pagamento."
+    User:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: Admin }
+        email: { type: string, format: email, example: admin@example.com }
+        role: { type: string, enum: [cliente, admin] }
+    Category:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer, example: 1 }
+            name: { type: string }
+            slug: { type: string }
+            description: { type: string, nullable: true }
+        - $ref: "#/components/schemas/Timestamps"
+    Product:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer, example: 1 }
+            category_id: { type: integer, example: 1 }
+            name: { type: string }
+            description: { type: string }
+            price: { $ref: "#/components/schemas/Money" }
+            stock: { type: integer, minimum: 0, description: Zero indica produto indisponível. }
+            image_url: { type: string, format: uri, nullable: true }
+            is_active: { type: boolean }
+        - $ref: "#/components/schemas/Timestamps"
+    ProductModel:
+      description: Model devolvido pela criação. `stock`, `is_active` e `image_url` só aparecem se enviados.
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            category_id: { type: integer }
+            name: { type: string }
+            description: { type: string }
+            price: { $ref: "#/components/schemas/Money" }
+            stock: { type: integer }
+            image_url: { type: string, format: uri, nullable: true }
+            is_active: { type: boolean }
+        - $ref: "#/components/schemas/Timestamps"
+    ProductInput:
+      type: object
+      required: [category_id, name, description, price]
+      properties:
+        category_id: { type: integer, description: Categoria existente. }
+        name: { type: string, maxLength: 255 }
+        description: { type: string }
+        price: { type: number, minimum: 0, maximum: 99999999.99, description: Até 2 casas decimais., example: 129.9 }
+        stock: { type: integer, minimum: 0 }
+        image_url: { type: string, format: uri, maxLength: 255, nullable: true, description: URL da imagem; a API não recebe upload de arquivo. }
+        is_active: { type: boolean }
+    ProductUpdate:
+      type: object
+      properties:
+        category_id: { type: integer }
+        name: { type: string, maxLength: 255 }
+        description: { type: string }
+        price: { type: number, minimum: 0, maximum: 99999999.99 }
+        stock: { type: integer, minimum: 0 }
+        image_url: { type: string, format: uri, maxLength: 255, nullable: true }
+        is_active: { type: boolean }
+    Address:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer, example: 1 }
+            recipient_name: { type: string }
+            zip_code: { type: string }
+            street: { type: string }
+            number: { type: string }
+            complement: { type: string, nullable: true }
+            neighborhood: { type: string }
+            city: { type: string }
+            state: { type: string }
+        - $ref: "#/components/schemas/Timestamps"
+    AddressInput:
+      type: object
+      required: [recipient_name, zip_code, street, number, neighborhood, city, state]
+      properties:
+        recipient_name: { type: string, maxLength: 255, example: Maria Silva }
+        zip_code: { type: string, maxLength: 255, example: "01001-000" }
+        street: { type: string, maxLength: 255, example: Praça da Sé }
+        number: { type: string, maxLength: 255, example: "100" }
+        complement: { type: string, maxLength: 255, nullable: true }
+        neighborhood: { type: string, maxLength: 255, example: Sé }
+        city: { type: string, maxLength: 255, example: São Paulo }
+        state: { type: string, maxLength: 255, example: SP }
+    AddressUpdate:
+      type: object
+      properties:
+        recipient_name: { type: string, maxLength: 255 }
+        zip_code: { type: string, maxLength: 255 }
+        street: { type: string, maxLength: 255 }
+        number: { type: string, maxLength: 255 }
+        complement: { type: string, maxLength: 255, nullable: true }
+        neighborhood: { type: string, maxLength: 255 }
+        city: { type: string, maxLength: 255 }
+        state: { type: string, maxLength: 255 }
+    CartItem:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            cart_id: { type: integer }
+            product_id: { type: integer }
+            quantity: { type: integer, minimum: 1 }
+        - $ref: "#/components/schemas/Timestamps"
+    CartItemEnvelope:
+      type: object
+      properties:
+        data: { $ref: "#/components/schemas/CartItem" }
+    CurrentCartItem:
+      allOf:
+        - $ref: "#/components/schemas/CartItem"
+        - type: object
+          properties:
+            product: { $ref: "#/components/schemas/Product" }
+            subtotal: { $ref: "#/components/schemas/Money" }
+            available: { type: boolean, description: "`false` para produto inativo, excluído, sem estoque ou com quantidade acima do estoque." }
+            unavailable_reason: { type: string, nullable: true, example: Produto sem estoque. }
+    CurrentCart:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            user_id: { type: integer, nullable: true, description: Nulo no carrinho de visitante. }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/CurrentCartItem" }
+            item_count: { type: integer, description: Soma das quantidades. }
+            total: { $ref: "#/components/schemas/Money" }
+        - $ref: "#/components/schemas/Timestamps"
+    CartRecord:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            user_id: { type: integer, nullable: true }
+            guest_token: { type: string, nullable: true }
+        - $ref: "#/components/schemas/Timestamps"
+    CartInput:
+      type: object
+      properties:
+        user_id: { type: integer, nullable: true, description: Usuário existente; um carrinho por usuário. }
+        guest_token: { type: string, maxLength: 255, nullable: true, description: Único. }
+    CheckoutReview:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              product_id: { type: integer }
+              product_name: { type: string }
+              unit_price: { $ref: "#/components/schemas/Money" }
+              quantity: { type: integer }
+              subtotal: { $ref: "#/components/schemas/Money" }
+        subtotal: { $ref: "#/components/schemas/Money" }
+        shipping_cost: { type: string, example: "20.00" }
+        total: { $ref: "#/components/schemas/Money" }
+    OrderItem:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            order_id: { type: integer }
+            product_id: { type: integer }
+            product_name: { type: string, description: Nome congelado na criação do pedido. }
+            unit_price:
+              allOf: [{ $ref: "#/components/schemas/Money" }]
+              description: Preço congelado na criação do pedido.
+            quantity: { type: integer }
+            subtotal: { $ref: "#/components/schemas/Money" }
+        - $ref: "#/components/schemas/Timestamps"
+    Payment:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            order_id: { type: integer }
+            status: { type: string, enum: [pendente, pago, cancelado] }
+            amount: { $ref: "#/components/schemas/Money" }
+            paid_at: { type: string, format: date-time, nullable: true }
+        - $ref: "#/components/schemas/Timestamps"
+    OrderSummary:
+      allOf:
+        - type: object
+          properties:
+            id: { type: integer }
+            address_id: { type: integer }
+            users_id: { type: integer }
+            status: { $ref: "#/components/schemas/OrderStatus" }
+            subtotal: { $ref: "#/components/schemas/Money" }
+            total: { $ref: "#/components/schemas/Money" }
+            shipping_cost: { type: string, example: "20.00" }
+        - $ref: "#/components/schemas/Timestamps"
+    Order:
+      allOf:
+        - $ref: "#/components/schemas/OrderSummary"
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/OrderItem" }
+            address: { $ref: "#/components/schemas/Address" }
+            payments:
+              type: array
+              items: { $ref: "#/components/schemas/Payment" }
+    PaginationLinks:
+      type: object
+      properties:
+        first: { type: string, format: uri, nullable: true }
+        last: { type: string, format: uri, nullable: true }
+        prev: { type: string, format: uri, nullable: true }
+        next: { type: string, format: uri, nullable: true }
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer }
+        from: { type: integer, nullable: true }
+        last_page: { type: integer }
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              url: { type: string, nullable: true }
+              label: { type: string }
+              page: { type: integer, nullable: true }
+              active: { type: boolean }
+        path: { type: string, format: uri }
+        per_page: { type: integer }
+        to: { type: integer, nullable: true }
+        total: { type: integer }
