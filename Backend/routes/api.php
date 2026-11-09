@@ -29,6 +29,12 @@ Route::delete('cart/items/{id}', [CartItemController::class, 'removeCurrent'])->
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('me', [AuthController::class, 'me']);
     Route::post('logout', [AuthController::class, 'logout']);
+    Route::get('checkout', [OrderController::class, 'review']);
+    Route::post('orders', [OrderController::class, 'store']);
+    Route::get('orders/{id}', [OrderController::class, 'show'])->whereNumber('id');
+    Route::post('orders/{id}/pay', [PaymentController::class, 'pay'])->whereNumber('id');
+    Route::get('my/addresses', [AddressController::class, 'mine']);
+    Route::post('my/addresses', [AddressController::class, 'storeOwn']);
 
     Route::apiResource('categories', CategoryController::class)
         ->only(['show'])->whereNumber('category');
@@ -43,9 +49,11 @@ Route::middleware('auth:sanctum')->group(function () {
             ->whereNumber('address');
 
         Route::apiResource('orders', OrderController::class)
+            ->only(['index'])
             ->whereNumber('order');
 
         Route::apiResource('payments', PaymentController::class)
+            ->only(['index', 'show'])
             ->whereNumber('payment');
 
         Route::apiResource('categories', CategoryController::class)
@@ -63,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->whereNumber('cart_item');
 
         Route::apiResource('order-items', OrderItemController::class)
+            ->only(['index', 'show'])
             ->whereNumber('order_item');
     });
 });

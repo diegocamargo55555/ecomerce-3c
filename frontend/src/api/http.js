@@ -87,6 +87,7 @@ export async function api(path, { method = "GET", body } = {}, retry = true) {
       401: "Sua sessão terminou. Entre novamente para continuar.",
       403: "Você não tem permissão para realizar esta ação.",
       404: "Este registro não está mais disponível. Atualize a lista.",
+      409: "Esta operação não está disponível no estado atual do pedido.",
       419: "Sua sessão expirou. Atualize a página e tente novamente.",
       422: "Confira os campos indicados e tente novamente.",
       429: "Muitas tentativas. Aguarde um minuto e tente novamente.",
@@ -128,6 +129,30 @@ export async function updateCartItem(id, quantity) {
 
 export async function removeCartItem(id) {
   return resourceData(await api(`/api/cart/items/${encodeURIComponent(id)}`, { method: "DELETE" }));
+}
+
+export async function getCheckout() {
+  return resourceData(await api("/api/checkout"));
+}
+
+export async function getAddresses() {
+  return resourceData(await api("/api/my/addresses"));
+}
+
+export async function createAddress(address) {
+  return resourceData(await api("/api/my/addresses", { method: "POST", body: address }));
+}
+
+export async function createOrder(addressId) {
+  return resourceData(await api("/api/orders", { method: "POST", body: { address_id: addressId } }));
+}
+
+export async function getOrder(id) {
+  return resourceData(await api(`/api/orders/${encodeURIComponent(id)}`));
+}
+
+export async function payOrder(id) {
+  return resourceData(await api(`/api/orders/${encodeURIComponent(id)}/pay`, { method: "POST" }));
 }
 
 export async function listResource(key) {

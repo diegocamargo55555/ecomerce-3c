@@ -17,6 +17,20 @@ class AddressController extends Controller
         private AddressService $addressService
     ) {}
 
+    public function mine(Request $request)
+    {
+        return AddressResource::collection($this->addressService->listForUser($request->user()->id));
+    }
+
+    public function storeOwn(StoreAddressRequest $request)
+    {
+        $address = $this->addressService->create([
+            ...$request->validated(), 'users_id' => $request->user()->id,
+        ]);
+
+        return new AddressResource($address);
+    }
+
         /**
      * Display a listing of the resource.
      */

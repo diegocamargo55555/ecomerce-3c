@@ -24,6 +24,9 @@ const page = ref("products");
 const productId = computed(() =>
   page.value.startsWith("products/") ? page.value.slice(9) : "",
 );
+const orderId = computed(() => page.value.startsWith("order/") ? page.value.slice(6) : "");
+const customerPage = computed(() => page.value === "checkout" || !!orderId.value);
+const afterLogin = ref("cart");
 const menuOpen = ref(false);
 const compactLayout = window.matchMedia("(max-width: 760px)");
 const mobile = ref(compactLayout.matches);
@@ -37,6 +40,8 @@ const title = computed(
     page.value === "login"
       ? "Sua conta"
       : page.value === "cart" ? "Meu carrinho"
+      : page.value === "checkout" ? "Finalizar compra"
+      : orderId.value ? `Pedido #${orderId.value}`
       : productId.value ? "Produto" : resources[resourceKey.value]?.title || "Visão geral",
 );
 const activeKey = computed(
@@ -59,7 +64,8 @@ function syncRoute() {
   page.value =
     Object.hasOwn(resources, key) ||
     /^products\/[^/]+$/.test(key) ||
-    ["login", "cart", "overview", "manage-products", "manage-categories"].includes(key)
+    /^order\/[^/]+$/.test(key) ||
+    ["login", "cart", "checkout", "overview", "manage-products", "manage-categories"].includes(key)
       ? key
       : "products";
   if (!starting.value && !startError.value) {
@@ -67,7 +73,13 @@ function syncRoute() {
       navigate(isAdmin.value ? "overview" : "products");
       return;
     }
-    if (!publicPage.value && page.value !== "login" && !isAdmin.value) {
+    if (customerPage.value && !user.value) {
+      afterLogin.value = page.value;
+      notice.value = "Entre na sua conta para continuar.";
+      navigate("login");
+      return;
+    }
+    if (!publicPage.value && !customerPage.value && page.value !== "login" && !isAdmin.value) {
       notice.value = user.value
         ? "O painel é exclusivo de administradores. Você pode navegar pelo catálogo."
         : "Entre na sua conta para continuar.";
@@ -132,7 +144,9 @@ function authenticated(value, warnings = []) {
   user.value = value;
   notice.value = warnings.join(" ");
   if (isAdmin.value && warnings.length) notify(notice.value, "warning");
-  navigate(isAdmin.value ? "overview" : "cart");
+  const destination = afterLogin.value;
+  afterLogin.value = "cart";
+  navigate(destination !== "cart" ? destination : isAdmin.value ? "overview" : "cart");
 }
 async function signOut() {
   signingOut.value = true;
@@ -183,9 +197,10 @@ onBeforeUnmount(() => {
     @authenticated="authenticated"
   />
   <CatalogView
-    v-else-if="publicPage"
-    :section="productId ? 'product' : page"
+    v-else-if="publicPage || customerPage"
+    :section="productId ? 'product' : orderId ? 'order' : page"
     :product-id="productId"
+    :order-id="orderId"
     :user="user"
     :notice="notice"
     :signing-out="signingOut"

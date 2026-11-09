@@ -7,6 +7,11 @@ use Illuminate\Database\Eloquent\Collection;
 
 class AddressService
 {
+    public function listForUser(int $userId): Collection
+    {
+        return Address::where('users_id', $userId)->orderByDesc('id')->get();
+    }
+
     public function listAll(): Collection
     {
         return Address::all();

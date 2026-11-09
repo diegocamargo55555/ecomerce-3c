@@ -24,11 +24,6 @@ class StoreOrderRequest extends FormRequest
     {
         return [
             'address_id' => ['required', 'integer', 'exists:addresses,id'],
-            'users_id' => ['required', 'integer', 'exists:users,id'],
-            'status' => ['sometimes', 'required', 'string', 'in:pendente,pago,enviado,entregue,cancelado'],
-            'subtotal' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
-            'total' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
-            'shipping_cost' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
         ];
     }
 }

@@ -86,9 +86,13 @@ async function change(item, remove = false) {
         <p>{{ cart.item_count }} unidade(s) em {{ cart.items.length }} produto(s)</p>
         <div class="cart-total"><span>Total</span><strong>{{ currency(cart.total) }}</strong></div>
         <small class="muted">Frete não incluído. Os preços acompanham o catálogo.</small>
+        <a v-if="!busy && !loading && !error && cart.items.every(item => item.available)" href="#checkout" class="button primary">
+          Finalizar compra <Icon name="right" :size="16" />
+        </a>
+        <button v-else type="button" class="button primary" disabled>Finalizar compra</button>
+        <small v-if="cart.items.some(item => !item.available)" class="muted">Ajuste os itens indisponíveis antes de continuar.</small>
         <template v-if="!user">
-          <a href="#login" class="button primary">Entrar ou criar conta <Icon name="right" :size="16" /></a>
-          <small class="muted">Seu carrinho será preservado ao entrar.</small>
+          <small class="muted">Entre ou crie uma conta para finalizar. Seu carrinho será preservado.</small>
         </template>
       </aside>
     </div>

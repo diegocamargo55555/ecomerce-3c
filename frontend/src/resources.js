@@ -98,6 +98,7 @@ export const resources = {
     ],
   },
   orders: {
+    readOnly: true,
     title: "Pedidos",
     singular: "pedido",
     icon: "orders",
@@ -129,6 +130,7 @@ export const resources = {
     related: "order-items",
   },
   "order-items": {
+    readOnly: true,
     title: "Itens dos pedidos",
     singular: "item do pedido",
     icon: "orders",
@@ -186,6 +188,7 @@ export const resources = {
     ],
   },
   payments: {
+    readOnly: true,
     title: "Pagamentos",
     singular: "pagamento",
     icon: "wallet",
@@ -244,7 +247,8 @@ export const resources = {
       text("street", "Rua / avenida"),
       text("number", "Número"),
       text("complement", "Complemento", {
-        hint: "Campo obrigatório. Ex.: casa, bloco ou apartamento.",
+        required: false,
+        hint: "Ex.: casa, bloco ou apartamento.",
       }),
       text("neighborhood", "Bairro"),
       text("city", "Cidade"),

@@ -23,12 +23,13 @@ class StoreAddressRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'users_id' => ['required', 'integer', 'exists:users,id'],
+            'users_id' => $this->routeIs('addresses.store')
+                ? ['required', 'integer', 'exists:users,id'] : ['prohibited'],
             'recipient_name' => ['required', 'string', 'max:255'],
             'zip_code' => ['required', 'string', 'max:255'],
             'street' => ['required', 'string', 'max:255'],
             'number' => ['required', 'string', 'max:255'],
-            'complement' => ['required', 'string', 'max:255'],
+            'complement' => ['nullable', 'string', 'max:255'],
             'neighborhood' => ['required', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'state' => ['required', 'string', 'max:255'],

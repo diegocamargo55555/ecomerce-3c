@@ -5,15 +5,22 @@ import { currency } from "../resources.js";
 import Icon from "./Icon.vue";
 import ProductView from "./ProductView.vue";
 import CartView from "./CartView.vue";
+import CheckoutView from "./CheckoutView.vue";
+import OrderView from "./OrderView.vue";
 
 const props = defineProps({
   section: String,
   productId: String,
+  orderId: String,
   user: Object,
   notice: String,
   signingOut: Boolean,
 });
 const emit = defineEmits(["navigate", "sign-out"]);
+function orderCreated(order) {
+  refreshCart();
+  emit("navigate", `order/${order.id}`);
+}
 const products = ref([]);
 const categories = ref([]);
 const loading = ref(true);
@@ -89,7 +96,7 @@ async function load() {
   loading.value = true;
   failedImages.value = new Set();
   const results = await Promise.allSettled([
-    ["product", "cart"].includes(props.section)
+    ["product", "cart", "checkout", "order"].includes(props.section)
       ? Promise.resolve({ data: [], meta: { total: 0, last_page: 1 } })
       : listCatalog({
           search: search.value,
@@ -122,7 +129,7 @@ watch([search, category, sort, page], load);
 watch(
   () => props.section,
   (section, previous) => {
-    if (["product", "cart"].includes(section) || ["product", "cart"].includes(previous)) load();
+    if (["product", "cart", "checkout", "order"].includes(section) || ["product", "cart", "checkout", "order"].includes(previous)) load();
     if (section === "cart") refreshCart();
   },
 );
@@ -253,6 +260,8 @@ onMounted(() => { load(); refreshCart(); });
       <ProductView v-if="section === 'product'" :key="productId" :product-id="productId" @cart-updated="refreshCart" />
       <CartView v-else-if="section === 'cart'" :cart="cart" :loading="cartLoading" :error="cartError" :user="user"
         @refresh="refreshCart" @updated="updatedCart" />
+      <CheckoutView v-else-if="section === 'checkout'" @created="orderCreated" />
+      <OrderView v-else-if="section === 'order'" :key="orderId" :order-id="orderId" :user="user" />
       <template v-else>
       <header class="catalog-intro">
         <div>

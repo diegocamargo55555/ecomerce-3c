@@ -298,7 +298,7 @@ function exportCsv() {
         <p class="muted">{{ config.description }}</p>
       </div>
       <button
-        v-if="user"
+        v-if="user && !config.readOnly"
         class="button primary"
         :disabled="loading || !!error"
         @click="openForm()"
@@ -461,7 +461,7 @@ function exportCsv() {
           "
         >
           Limpar filtros</button
-        ><button v-else-if="user" class="button secondary" @click="openForm()">
+        ><button v-else-if="user && !config.readOnly" class="button secondary" @click="openForm()">
           <Icon name="plus" :size="16" /> Adicionar {{ config.singular }}
         </button>
       </div>
@@ -481,7 +481,7 @@ function exportCsv() {
               >
                 {{ column.label }}
               </th>
-              <th v-if="user" scope="col" class="actions-heading">Ações</th>
+              <th v-if="user && !config.readOnly" scope="col" class="actions-heading">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -532,14 +532,16 @@ function exportCsv() {
                   :class="['stock-value', { low: Number(row.stock) <= 5 }]"
                   ><i v-if="Number(row.stock) <= 5" />{{ row.stock }}
                   <small>un.</small></span
-                ><span
+                ><a v-else-if="resourceKey === 'orders' && column.key === 'id'" :href="`#order/${row.id}`" class="text-button">
+                  {{ cell(row, column) }} <Icon name="right" :size="14" />
+                </a><span
                   v-else
                   class="cell-text"
                   :title="String(cell(row, column))"
                   >{{ cell(row, column) }}</span
                 >
               </td>
-              <td v-if="user" class="row-actions">
+              <td v-if="user && !config.readOnly" class="row-actions">
                 <button
                   class="icon-button"
                   :aria-label="`Editar ${config.singular} ${row.name || row.id}`"

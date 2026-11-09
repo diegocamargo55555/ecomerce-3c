@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('order_id')->constrained();
+            $table->foreignId('order_id')->unique()->constrained();
             $table->enum('status', ['pendente', 'pago', 'cancelado'])->default('pendente');
             $table->decimal('amount', 10, 2);
             $table->timestamp("paid_at")->nullable();

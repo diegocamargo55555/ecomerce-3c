@@ -2,36 +2,98 @@
 
 namespace App\Services;
 
+use App\Models\Address;
+use App\Models\Cart;
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OrderService
 {
+    private const SHIPPING_COST = '20.00';
+
+    public function __construct(private CartService $cartService) {}
+
+    public function review(Request $request): array
+    {
+        $cart = $this->cartService->current($request);
+        $cart->load(['items.product' => fn ($query) => $query->withTrashed()]);
+
+        return $this->quote($cart);
+    }
+
+    private function quote(Cart $cart): array
+    {
+        if ($cart->items->isEmpty()) {
+            throw ValidationException::withMessages(['cart' => ['Seu carrinho está vazio.']]);
+        }
+        $subtotal = '0.00';
+        $items = [];
+        foreach ($cart->items as $item) {
+            $product = $item->product;
+            if (! $product || $product->trashed() || ! $product->is_active
+                || $item->quantity < 1 || $item->quantity > $product->stock) {
+                $name = $product?->name ?? "Produto #{$item->product_id}";
+                throw ValidationException::withMessages(['cart' => ["{$name}: produto indisponível ou estoque insuficiente."]]);
+            }
+            $lineTotal = bcmul($product->price, (string) $item->quantity, 2);
+            $subtotal = bcadd($subtotal, $lineTotal, 2);
+            $items[] = [
+                'product_id' => $product->id, 'product_name' => $product->name,
+                'unit_price' => $product->price, 'quantity' => $item->quantity, 'subtotal' => $lineTotal,
+            ];
+        }
+        $total = bcadd($subtotal, self::SHIPPING_COST, 2);
+        if (bccomp($total, '99999999.99', 2) > 0) {
+            throw ValidationException::withMessages(['cart' => ['O total ultrapassa o limite de R$ 99.999.999,99 por pedido.']]);
+        }
+
+        return ['items' => $items, 'subtotal' => $subtotal, 'shipping_cost' => self::SHIPPING_COST, 'total' => $total];
+    }
+
+    public function checkout(Request $request, int $addressId): Order
+    {
+        return DB::transaction(function () use ($request, $addressId) {
+            $cart = $this->cartService->current($request);
+            $address = Address::where('users_id', $request->user()->id)->lockForUpdate()->findOrFail($addressId);
+            $items = $cart->items()->orderBy('product_id')->lockForUpdate()->get();
+            $products = Product::withTrashed()->whereIn('id', $items->pluck('product_id'))
+                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            foreach ($items as $item) {
+                $item->setRelation('product', $products->get($item->product_id));
+            }
+            $cart->setRelation('items', $items);
+            $quote = $this->quote($cart);
+            $order = Order::create([
+                'users_id' => $request->user()->id, 'address_id' => $address->id, 'status' => 'pendente',
+                'subtotal' => $quote['subtotal'], 'shipping_cost' => $quote['shipping_cost'], 'total' => $quote['total'],
+            ]);
+            $order->items()->createMany($quote['items']);
+            foreach ($items as $item) {
+                $item->product->decrement('stock', $item->quantity);
+            }
+            $order->payments()->create(['status' => 'pendente', 'amount' => $order->total]);
+            $cart->items()->delete();
+
+            return $order->load('items', 'address', 'payments');
+        }, 3);
+    }
+
+    public function findForUser(int $id, User $user): Order
+    {
+        $order = Order::findOrFail($id);
+        abort_unless($order->users_id === $user->id || $user->role === 'admin', 403);
+
+        return $order->load('items', 'address', 'payments');
+    }
+
     public function listAll(): Collection
     {
         return Order::all();
     }
 
-    public function create(array $data): Order
-    {
-        return Order::create($data);
-    }
-
-    public function findById(int $id): Order
-    {
-        return Order::findOrFail($id);
-    }
-
-    public function update(int $id, array $data): Order
-    {
-        $order = Order::findOrFail($id);
-        $order->update($data);
-
-        return $order;
-    }
-
-    public function delete(int $id): void
-    {
-        Order::findOrFail($id)->delete();
-    }
 }

@@ -57,7 +57,10 @@ O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, 
 | `GET /api/cart`, `POST /api/cart/items`, `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id` | Carrinho atual da sessão, com ou sem login; escritas exigem CSRF |
 | `GET /api/categories/:id` | Cliente ou admin autenticado |
 | Criação, edição e exclusão de produtos/categorias | Admin |
-| Todas as operações de users, addresses, carts, cart-items, orders, order-items e payments | Admin |
+| CRUD de users, addresses, carts e cart-items; consulta geral de pedidos, itens e pagamentos | Admin |
+| `GET /api/checkout`, `POST /api/orders`, `GET/POST /api/my/addresses` | Cliente ou admin autenticado, usando o próprio carrinho e endereço |
+| `GET /api/orders/:id` | Dono do pedido ou admin |
+| `POST /api/orders/:id/pay` | Somente o dono do pedido |
 
 Sem sessão, rotas protegidas retornam 401; clientes recebem 403 nas operações administrativas, inclusive acessando a API diretamente. A Gate `admin` protege as rotas no backend. Cadastro e criação de usuários produzem clientes; enviar `role` no cadastro, criação ou edição de usuários retorna 422, inclusive valores vazios. O papel é retornado em `UserResource` e não é mass assignable. Não há endpoint de promoção de papel.
 
@@ -88,7 +91,7 @@ docker compose exec php php artisan migrate
 docker compose exec php php artisan db:seed
 ```
 
-Os cinco status estão definidos diretamente na migration que cria `orders`. A validação e os formulários administrativos reconhecem esses valores; as regras de transição continuam pendentes. Alterar a migration original não atualiza tabelas já criadas. A base local já aceita os cinco status e foi preservada.
+Os cinco status estão definidos diretamente na migration que cria `orders`. O checkout cria pedidos pendentes e a confirmação de pagamento os torna pagos; envio, entrega e cancelamento ainda estão pendentes. Alterar a migration original não atualiza tabelas já criadas. A base local já aceita os cinco status e foi preservada.
 
 ## Página pública do produto
 
@@ -113,10 +116,24 @@ A regra de fusão, executada no login **e** no cadastro, é:
 Requisições da mesma sessão são serializadas para evitar perda do identificador de visitante entre abas; alterações no banco usam bloqueio dos registros. As migrations que criam `carts` e `cart_items` já definem os índices únicos de `user_id` e de `cart_id` + `product_id`. Alterar essas migrations não atualiza tabelas existentes. A base local já possui os índices aplicados e foi preservada; instalações antigas sem esses índices precisam de ajuste do schema antes de usar esta versão.
 
 
+## Checkout e pagamento simulado
+
+No carrinho, clique em **Finalizar compra** para abrir `/#checkout`. Visitantes entram ou criam uma conta, têm o carrinho fundido e voltam ao checkout. Usuários autenticados podem selecionar um endereço próprio ou cadastrar um novo; o complemento é opcional. Não há cálculo de frete por CEP: o frete é fixo em **R$ 20,00 por pedido**, exibido na revisão e calculado exclusivamente no servidor.
+
+`GET /api/checkout` retorna itens, quantidades, preços atuais, subtotais, frete e total. `POST /api/orders` recebe somente `address_id`; usuário, status e valores financeiros enviados no corpo são ignorados. O servidor verifica que o endereço pertence à conta, revalida todos os produtos e calcula tudo novamente com BCMath. Carrinho vazio, produto indisponível, estoque insuficiente ou total acima do limite `decimal(10,2)` retornam 422; o erro de produto informa qual item falhou. Endereço alheio retorna 404.
+
+A criação usa uma transação com bloqueio do carrinho, dos itens e dos produtos em ordem de ID: grava o pedido pendente, congela nome/preço nos itens, decrementa estoque, cria o registro de pagamento pendente e esvazia o carrinho. Qualquer falha desfaz toda a operação. Duas confirmações simultâneas da mesma conta não duplicam o pedido; concorrência pelo último produto só permite uma compra.
+
+A página `/#order/ID` mostra o pedido, seus itens congelados, endereço, frete e total. O dono encontra a ação **Confirmar pagamento simulado**. `POST /api/orders/{id}/pay` não recebe valor, dados de cartão ou gateway; em uma transação, usa o total gravado no pedido, registra a data/hora no pagamento e altera o pedido para pago. Uma segunda tentativa ou pedido fora de pendente retorna 409; outro usuário, inclusive admin de outro pedido, recebe 403. O pagamento não baixa estoque novamente. O dono e admins podem consultar o detalhe por `GET /api/orders/{id}`.
+
+Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. As antigas escritas manuais desses registros foram desabilitadas na API e na interface para preservar estoque, preços e pagamentos; novas regras de envio, entrega e cancelamento serão ações próprias. A unicidade de `payments.order_id` está definida na migration original de pagamentos; o índice também foi aplicado à base local, preservando seus dados. Outras bases existentes precisam desse ajuste, pois editar uma migration já executada não altera o schema.
+
+Os testes de backend também verificam autorização, valores enviados pelo cliente, limites monetários, preços congelados, repetição do checkout e do pagamento e rollback em falhas depois da baixa de estoque ou da confirmação do pagamento. A verificação HTTP em banco MySQL temporário cobre cookies reais e concorrência entre sessões, sem modificar os dados de compras do banco principal.
+
 ## Limites desta etapa
 
-Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Perfil do cliente, checkout, pagamento e novas transições de pedidos permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
+Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Perfil do cliente, histórico de pedidos, cancelamento com devolução de estoque e transições de envio/entrega permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
 
-Os CRUDs administrativos existentes foram preservados. Pedidos, itens e pagamentos ainda são registros separados, sem checkout transacional ou novas regras financeiras. Não use as credenciais de demonstração em produção.
+Os CRUDs administrativos de catálogo, usuários, endereços e carrinhos permanecem disponíveis. Pedidos, seus itens e pagamentos são gerados pelo fluxo de compra e consultados pelo painel. Não use as credenciais de demonstração em produção.
 
 Mais detalhes: [frontend](frontend/README.md), [backend e fotos](Backend/README.md) e requisitos em `Projeto.pdf`.
