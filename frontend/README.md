@@ -4,6 +4,32 @@ Interface de gestão em Vue 3 para a API Laravel existente. As alterações dest
 
 ## Executar
 
+### Com Docker
+
+Na raiz do projeto, execute:
+
+```sh
+docker compose up -d --build frontend
+```
+
+Abra **http://127.0.0.1:5173/**. O Compose também inicia o PHP e o MySQL necessários. Os arquivos locais ficam montados no container para atualização automática, com `node_modules` isolado em um volume do Docker.
+
+O frontend encaminha `/api` e `/sanctum` para `http://php:8000` pela rede do Compose e usa `http://127.0.0.1:8000` como origem de sessão aceita pelo Sanctum.
+
+```sh
+docker compose exec frontend npm test
+docker compose exec frontend npm run build
+docker compose logs -f frontend
+```
+
+Ao alterar dependências, reconstrua a imagem e renove o volume de `node_modules`:
+
+```sh
+docker compose up -d --build --renew-anon-volumes --no-deps frontend
+```
+
+### Sem Docker
+
 Com o backend existente disponível na porta 8000, execute nesta pasta:
 
 ```sh
