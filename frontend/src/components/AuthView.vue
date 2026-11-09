@@ -34,12 +34,11 @@ async function submit() {
       mode.value === "login"
         ? { email: form.email.trim(), password: form.password }
         : { ...form, name: form.name.trim(), email: form.email.trim() };
-    const user = resourceData(
-      await (mode.value === "login" ? login(payload) : register(payload)),
-    );
+    const response = await (mode.value === "login" ? login(payload) : register(payload));
+    const user = resourceData(response);
     form.password = "";
     form.password_confirmation = "";
-    emit("authenticated", user);
+    emit("authenticated", user, response.cart_warnings || []);
   } catch (failure) {
     error.value = failure.message;
     errors.value = failure.errors || {};

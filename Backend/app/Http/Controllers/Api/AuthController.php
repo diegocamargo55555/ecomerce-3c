@@ -17,12 +17,13 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request)
     {
-        $user = $this->authService->register(
+        $result = $this->authService->register(
             $request->validated(),
             $request
         );
 
-        return (new UserResource($user))
+        return (new UserResource($result['user']))
+            ->additional(['cart_warnings' => $result['warnings']])
             ->response()
             ->setStatusCode(201)
             ->header('Cache-Control', 'no-store');
@@ -30,12 +31,13 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
-        $user = $this->authService->login(
+        $result = $this->authService->login(
             $request->validated(),
             $request
         );
 
-        return (new UserResource($user))
+        return (new UserResource($result['user']))
+            ->additional(['cart_warnings' => $result['warnings']])
             ->response()
             ->header('Cache-Control', 'no-store');
     }

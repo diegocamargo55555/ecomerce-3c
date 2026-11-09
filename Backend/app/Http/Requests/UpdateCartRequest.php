@@ -24,7 +24,7 @@ class UpdateCartRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id', Rule::unique('carts', 'user_id')->ignore((int) $this->route('cart'))],
             'guest_token' => ['sometimes', 'nullable', 'string', 'max:255', Rule::unique('carts', 'guest_token')->ignore((int) $this->route('cart'))],
         ];
     }

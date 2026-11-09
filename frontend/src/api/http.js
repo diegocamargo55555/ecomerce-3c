@@ -116,6 +116,20 @@ export async function addToCart(productId, quantity) {
   }));
 }
 
+export async function getCart() {
+  return resourceData(await api("/api/cart"));
+}
+
+export async function updateCartItem(id, quantity) {
+  return resourceData(await api(`/api/cart/items/${encodeURIComponent(id)}`, {
+    method: "PATCH", body: { quantity },
+  }));
+}
+
+export async function removeCartItem(id) {
+  return resourceData(await api(`/api/cart/items/${encodeURIComponent(id)}`, { method: "DELETE" }));
+}
+
 export async function listResource(key) {
   const path = key === "products" ? "admin/products" : key;
   const data = resourceData(await api(`/api/${path}`));

@@ -23,7 +23,7 @@ class StoreCartRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id', 'unique:carts,user_id'],
             'guest_token' => ['nullable', 'string', 'max:255', 'unique:carts,guest_token'],
         ];
     }

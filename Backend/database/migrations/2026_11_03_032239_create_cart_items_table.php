@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained();
             $table->foreignId('cart_id')->constrained()->cascadeOnDelete();
             $table->unsignedInteger('quantity');
+            $table->unique(['cart_id', 'product_id']);
             $table->timestamps();
         });
     }

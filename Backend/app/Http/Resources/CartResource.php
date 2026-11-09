@@ -17,7 +17,10 @@ class CartResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
-            'guest_token' => $this->guest_token,
+            'guest_token' => $this->when(! $this->relationLoaded('items'), $this->guest_token),
+            'items' => CartItemResource::collection($this->whenLoaded('items')),
+            'item_count' => $this->whenHas('item_count'),
+            'total' => $this->whenHas('total'),
             'created_at'  => $this->created_at,
             'updated_at'  => $this->updated_at,
         ];

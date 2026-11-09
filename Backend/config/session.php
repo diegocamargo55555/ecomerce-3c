@@ -20,6 +20,9 @@ return [
 
     'driver' => env('SESSION_DRIVER', 'database'),
 
+    // Serializa requisições da mesma sessão para não perder o carrinho entre abas.
+    'block' => true,
+
     /*
     |--------------------------------------------------------------------------
     | Session Lifetime

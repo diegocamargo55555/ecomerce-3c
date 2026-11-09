@@ -7,12 +7,19 @@ use App\Http\Requests\StoreCartRequest;
 use App\Http\Requests\UpdateCartRequest;
 use App\Http\Resources\CartResource;
 use App\Services\CartService;
+use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
     public function __construct(
         private CartService $cartService
     ) {}
+
+    public function current(Request $request)
+    {
+        return (new CartResource($this->cartService->details($this->cartService->current($request))))
+            ->response()->setStatusCode(200);
+    }
 
     public function index()
     {

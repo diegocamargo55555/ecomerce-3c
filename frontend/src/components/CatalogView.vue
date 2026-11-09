@@ -1,9 +1,10 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { listCatalog, listResource } from "../api/http.js";
+import { getCart, listCatalog, listResource } from "../api/http.js";
 import { currency } from "../resources.js";
 import Icon from "./Icon.vue";
 import ProductView from "./ProductView.vue";
+import CartView from "./CartView.vue";
 
 const props = defineProps({
   section: String,
@@ -24,7 +25,35 @@ const sort = ref("newest");
 const page = ref(1);
 const pagination = ref({ total: 0, last_page: 1, from: null, to: null });
 const failedImages = ref(new Set());
+const cart = ref(null);
+const cartLoading = ref(true);
+const cartError = ref("");
+let cartVersion = 0;
 let loadVersion = 0;
+
+async function refreshCart() {
+  const version = ++cartVersion;
+  cartLoading.value = true;
+  cartError.value = "";
+  try {
+    const value = await getCart();
+    if (version === cartVersion) cart.value = value;
+  } catch (failure) {
+    if (version === cartVersion) cartError.value = failure.message;
+  } finally {
+    if (version === cartVersion) cartLoading.value = false;
+  }
+}
+function updatedCart(value) {
+  ++cartVersion;
+  cart.value = value;
+  cartLoading.value = false;
+  cartError.value = "";
+}
+watch(() => props.user?.id, () => {
+  cart.value = null;
+  refreshCart();
+});
 const categoryNames = computed(
   () => new Map(categories.value.map((row) => [String(row.id), row.name])),
 );
@@ -60,7 +89,7 @@ async function load() {
   loading.value = true;
   failedImages.value = new Set();
   const results = await Promise.allSettled([
-    props.section === "product"
+    ["product", "cart"].includes(props.section)
       ? Promise.resolve({ data: [], meta: { total: 0, last_page: 1 } })
       : listCatalog({
           search: search.value,
@@ -93,10 +122,11 @@ watch([search, category, sort, page], load);
 watch(
   () => props.section,
   (section, previous) => {
-    if (section === "product" || previous === "product") load();
+    if (["product", "cart"].includes(section) || ["product", "cart"].includes(previous)) load();
+    if (section === "cart") refreshCart();
   },
 );
-onMounted(load);
+onMounted(() => { load(); refreshCart(); });
 </script>
 
 <template>
@@ -138,6 +168,11 @@ onMounted(load);
           </button>
         </form>
         <div class="store-account">
+          <a href="#cart" class="store-cart" :aria-current="section === 'cart' ? 'page' : undefined"
+            :aria-label="`Carrinho${cart && !cartError ? `, ${cart.item_count} item(ns)` : ''}`">
+            <Icon name="cart" :size="23" />
+            <b class="cart-count">{{ cartError ? "!" : cartLoading ? "…" : cart?.item_count ?? 0 }}</b>
+          </a>
           <a
             :href="
               user?.role === 'admin' ? '#overview' : user ? '#products' : '#login'
@@ -215,7 +250,9 @@ onMounted(load);
       <p v-if="notice" class="notice store-notice" role="status">
         {{ notice }}
       </p>
-      <ProductView v-if="section === 'product'" :key="productId" :product-id="productId" />
+      <ProductView v-if="section === 'product'" :key="productId" :product-id="productId" @cart-updated="refreshCart" />
+      <CartView v-else-if="section === 'cart'" :cart="cart" :loading="cartLoading" :error="cartError" :user="user"
+        @refresh="refreshCart" @updated="updatedCart" />
       <template v-else>
       <header class="catalog-intro">
         <div>
@@ -538,6 +575,9 @@ onMounted(load);
 .store-account strong {
   display: block;
 }
+.store-cart { position: relative; min-width: 44px; min-height: 44px; justify-content: center; border-radius: 6px; }
+.store-cart[aria-current="page"] { background: #ffffff20; }
+.cart-count { position: absolute; top: 0; right: -2px; min-width: 19px; padding: 1px 4px; border-radius: 20px; background: white; color: var(--primary); font-size: 10px; text-align: center; }
 .store-account small {
   font-size: 11px;
   color: #e1efff;

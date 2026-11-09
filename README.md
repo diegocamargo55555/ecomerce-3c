@@ -40,7 +40,7 @@ Credenciais de demonstração, exclusivamente locais:
 | ana@example.com | password | cliente |
 | bruno@example.com | password | cliente |
 
-Abra **http://localhost/#login** para entrar ou cadastrar um cliente. Clientes são direcionados ao catálogo; admins, à visão geral. A sessão é consultada antes de liberar telas internas, inclusive após recarregar. Clientes que abrem um hash administrativo voltam ao catálogo com aviso; visitantes vão ao login. O cabeçalho exibe gestão somente para admins e permite sair da conta.
+Abra **http://localhost/#login** para entrar ou cadastrar um cliente. Clientes são direcionados ao carrinho após login ou cadastro; admins, à visão geral. A sessão é consultada antes de liberar telas internas, inclusive após recarregar. Clientes que abrem um hash administrativo voltam ao catálogo com aviso; visitantes vão ao login. O cabeçalho exibe gestão somente para admins e permite sair da conta.
 
 ## Proxy, sessão e permissões
 
@@ -53,7 +53,8 @@ O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, 
 | `GET /api/products`, `GET /api/categories`, `POST /api/register`, `POST /api/login` | Público |
 | `GET /api/admin/products` (todos os produtos, incluindo inativos) | Admin |
 | `GET /api/me`, `POST /api/logout` | Cliente ou admin autenticado |
-| `GET /api/products/:id`, `POST /api/cart/items` | Público, com cookie de sessão para adicionar ao carrinho |
+| `GET /api/products/:id` | Público |
+| `GET /api/cart`, `POST /api/cart/items`, `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id` | Carrinho atual da sessão, com ou sem login; escritas exigem CSRF |
 | `GET /api/categories/:id` | Cliente ou admin autenticado |
 | Criação, edição e exclusão de produtos/categorias | Admin |
 | Todas as operações de users, addresses, carts, cart-items, orders, order-items e payments | Admin |
@@ -70,7 +71,7 @@ docker compose exec proxy nginx -t
 docker compose ps
 ```
 
-Os testes de backend forçam SQLite em memória, mesmo dentro do Compose, e verificam catálogo público, filtros, paginação, autorização da listagem administrativa, dados dos seeders, totais e repetição sem sobrescrever registros. Os testes do frontend cobrem o contrato paginado do catálogo e o cliente HTTP, incluindo cookies e renovação de CSRF. O build estático em `frontend/dist` precisa de um servidor que encaminhe os mesmos caminhos da API e imagens.
+Os testes de backend forçam SQLite em memória, mesmo dentro do Compose, e verificam catálogo público, filtros, paginação, autorização, dados dos seeders, carrinho, totais decimais, isolamento de itens e fusão no login/cadastro, além de repetição dos seeders sem sobrescrever registros. Os testes do frontend cobrem o contrato paginado do catálogo e o cliente HTTP, incluindo cookies e renovação de CSRF. O build estático em `frontend/dist` precisa de um servidor que encaminhe os mesmos caminhos da API e imagens.
 
 Para conferir no navegador, abra o catálogo sem login, entre/crie uma conta cliente, recarregue, tente `#overview` e saia. Depois entre como admin e abra o painel. Na aba Network, requisições HTTP e WebSocket devem continuar em `localhost:80`; confira também imagens, cookies e o retorno 401 de `/api/me` após logout.
 
@@ -95,11 +96,26 @@ Clique na imagem, no nome ou em “Ver detalhes” para abrir `/#products/ID`. O
 
 O botão “Adicionar ao carrinho” envia `product_id` e `quantity` para `POST /api/cart/items`. A API identifica a conta pela sessão autenticada ou gera um identificador aleatório guardado na sessão do visitante. O cliente não escolhe o carrinho. Quantidades repetidas são somadas no banco; a soma não pode ultrapassar o estoque e a quantidade deve ser inteira e positiva (422 em caso de erro). A operação usa transação e bloqueio dos registros, sem baixar estoque nesta etapa. O identificador de visitante não é retornado ao navegador; os cookies e o CSRF seguem o mesmo fluxo da autenticação.
 
-A tela completa do carrinho, seus totais e a fusão no login ainda estão pendentes. Adições anônimas e autenticadas permanecem em carrinhos separados até a implementação da fusão.
+## Carrinho e fusão no login
+
+Abra **http://localhost/#cart** pelo ícone do cabeçalho ou pelo link após adicionar um produto. A tela mostra imagem, nome, preço atual, quantidade, subtotal por produto e total, com indicador da quantidade de unidades. Permite atualizar a quantidade e remover itens; quantidade zero também remove. Produtos inativos, excluídos, sem estoque ou com quantidade acima do estoque são sinalizados e podem ser removidos.
+
+`GET /api/cart` devolve o carrinho atual com `items`, `item_count` e `total` dentro de `data`. `PATCH /api/cart/items/{id}` recebe apenas `quantity`; `DELETE /api/cart/items/{id}` remove o item. As duas mutações devolvem o carrinho atualizado. O servidor resolve o proprietário pela sessão, ignora valores financeiros e identificadores de carrinho enviados pelo navegador, e retorna 404 para itens de outro visitante ou usuário. Subtotais e total são calculados em decimal com BCMath, usando os preços atuais do banco, incluindo os itens sinalizados como indisponíveis. O total não inclui frete; o estoque só será baixado no checkout.
+
+A regra de fusão, executada no login **e** no cadastro, é:
+
+1. O servidor recupera o identificador de visitante guardado na sessão; não aceita um token informado no corpo da requisição.
+2. Produtos presentes nos dois carrinhos têm suas quantidades somadas. Produtos presentes em apenas um são mantidos.
+3. A fusão revalida todos os produtos dos dois carrinhos. A quantidade é limitada ao estoque atual; produtos inativos, excluídos ou sem estoque são removidos. Cada ajuste ou remoção gera um aviso em `cart_warnings`, ao lado de `data` na resposta de autenticação, exibido no frontend.
+4. A fusão é transacional, descarta o carrinho visitante com seus itens, remove o identificador da sessão e regenera a sessão invalidando a anterior. Login ou cadastro inválido preserva o carrinho visitante.
+5. O carrinho da conta permanece no banco entre sessões e dispositivos. Logout não apaga esse carrinho.
+
+Requisições da mesma sessão são serializadas para evitar perda do identificador de visitante entre abas; alterações no banco usam bloqueio dos registros. As migrations que criam `carts` e `cart_items` já definem os índices únicos de `user_id` e de `cart_id` + `product_id`. Alterar essas migrations não atualiza tabelas existentes. A base local já possui os índices aplicados e foi preservada; instalações antigas sem esses índices precisam de ajuste do schema antes de usar esta versão.
+
 
 ## Limites desta etapa
 
-Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Perfil do cliente, tela completa do carrinho, fusão de carrinhos, checkout, pagamento e novas transições de pedidos permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
+Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Perfil do cliente, checkout, pagamento e novas transições de pedidos permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
 
 Os CRUDs administrativos existentes foram preservados. Pedidos, itens e pagamentos ainda são registros separados, sem checkout transacional ou novas regras financeiras. Não use as credenciais de demonstração em produção.
 

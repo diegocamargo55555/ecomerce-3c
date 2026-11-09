@@ -5,6 +5,7 @@ import { currency } from "../resources.js";
 import Icon from "./Icon.vue";
 
 const props = defineProps({ productId: String });
+const emit = defineEmits(["cart-updated"]);
 const product = ref(null);
 const loading = ref(true);
 const error = ref("");
@@ -47,6 +48,7 @@ async function add() {
   added.value = "";
   try {
     const item = await addToCart(product.value.id, quantity.value);
+    emit("cart-updated");
     added.value = `Adicionado ao carrinho. Você tem ${item.quantity} unidade(s) deste produto.`;
   } catch (failure) {
     cartError.value = failure.status === 404
@@ -102,7 +104,7 @@ watch(() => props.productId, load, { immediate: true });
             </button>
           </div>
           <small id="quantity-help" class="muted">{{ product.stock ? `Máximo de ${product.stock} unidade(s).` : "Aguarde a reposição deste produto." }}</small>
-          <p v-if="added" class="notice" role="status">{{ added }}</p>
+          <p v-if="added" class="notice" role="status">{{ added }} <a href="#cart" class="text-button">Ver carrinho</a></p>
           <div v-if="cartError" class="product-cart-error" role="alert">
             <p>{{ cartError }}</p><button type="button" class="text-button" @click="load">Atualizar detalhes</button>
           </div>

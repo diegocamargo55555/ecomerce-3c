@@ -21,7 +21,10 @@ Route::post('login', [AuthController::class, 'login'])
 Route::apiResource('products', ProductController::class)
     ->only(['index', 'show'])->whereNumber('product');
 Route::apiResource('categories', CategoryController::class)->only(['index']);
+Route::get('cart', [CartController::class, 'current']);
 Route::post('cart/items', [CartItemController::class, 'add']);
+Route::patch('cart/items/{id}', [CartItemController::class, 'updateCurrent'])->whereNumber('id');
+Route::delete('cart/items/{id}', [CartItemController::class, 'removeCurrent'])->whereNumber('id');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('me', [AuthController::class, 'me']);

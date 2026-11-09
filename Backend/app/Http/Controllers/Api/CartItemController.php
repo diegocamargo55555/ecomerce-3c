@@ -6,14 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCartItemRequest;
 use App\Http\Requests\UpdateCartItemRequest;
 use App\Http\Resources\CartItemResource;
+use App\Http\Resources\CartResource;
 use App\Services\CartItemService;
+use App\Services\CartService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class CartItemController extends Controller
 {
     public function __construct(
-        private CartItemService $cartItemService
+        private CartItemService $cartItemService,
+        private CartService $cartService,
     ) {}
 
     public function index()
@@ -27,16 +29,24 @@ class CartItemController extends Controller
             'product_id' => ['required', 'integer', 'min:1'],
             'quantity' => ['required', 'integer', 'min:1', 'max:4294967295'],
         ]);
-        $userId = $request->user()?->id;
-        $guestToken = null;
-        if ($userId === null) {
-            $guestToken = $request->session()->get('cart_token') ?? Str::random(64);
-            $request->session()->put('cart_token', $guestToken);
-        }
-
         return new CartItemResource($this->cartItemService->addToCart(
-            $data['product_id'], $data['quantity'], $userId, $guestToken,
+            $request, $data['product_id'], $data['quantity'],
         ));
+    }
+
+    public function updateCurrent(Request $request, int $id)
+    {
+        $data = $request->validate(['quantity' => ['required', 'integer', 'min:0', 'max:4294967295']]);
+        $this->cartItemService->updateCurrent($request, $id, $data['quantity']);
+
+        return new CartResource($this->cartService->details($this->cartService->current($request)));
+    }
+
+    public function removeCurrent(Request $request, int $id)
+    {
+        $this->cartItemService->updateCurrent($request, $id, 0);
+
+        return new CartResource($this->cartService->details($this->cartService->current($request)));
     }
 
     public function store(StoreCartItemRequest $request)

@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCartItemRequest extends FormRequest
 {
@@ -24,7 +25,7 @@ class StoreCartItemRequest extends FormRequest
     {
         return [
             'cart_id' => ['required', 'integer', 'exists:carts,id'],
-            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'product_id' => ['required', 'integer', 'exists:products,id', Rule::unique('cart_items', 'product_id')->where('cart_id', $this->input('cart_id'))],
             'quantity' => ['required', 'integer', 'min:1'],
         ];
     }

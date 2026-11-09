@@ -36,13 +36,14 @@ const title = computed(
   () =>
     page.value === "login"
       ? "Sua conta"
+      : page.value === "cart" ? "Meu carrinho"
       : productId.value ? "Produto" : resources[resourceKey.value]?.title || "Visão geral",
 );
 const activeKey = computed(
   () => resources[resourceKey.value]?.parent || resourceKey.value,
 );
 const publicPage = computed(() =>
-  ["products", "categories"].includes(page.value) || !!productId.value,
+  ["products", "categories", "cart"].includes(page.value) || !!productId.value,
 );
 const isAdmin = computed(() => user.value?.role === "admin");
 
@@ -58,7 +59,7 @@ function syncRoute() {
   page.value =
     Object.hasOwn(resources, key) ||
     /^products\/[^/]+$/.test(key) ||
-    ["login", "overview", "manage-products", "manage-categories"].includes(key)
+    ["login", "cart", "overview", "manage-products", "manage-categories"].includes(key)
       ? key
       : "products";
   if (!starting.value && !startError.value) {
@@ -127,10 +128,11 @@ async function start() {
     syncRoute();
   }
 }
-function authenticated(value) {
+function authenticated(value, warnings = []) {
   user.value = value;
-  notice.value = "";
-  navigate(isAdmin.value ? "overview" : "products");
+  notice.value = warnings.join(" ");
+  if (isAdmin.value && warnings.length) notify(notice.value, "warning");
+  navigate(isAdmin.value ? "overview" : "cart");
 }
 async function signOut() {
   signingOut.value = true;
