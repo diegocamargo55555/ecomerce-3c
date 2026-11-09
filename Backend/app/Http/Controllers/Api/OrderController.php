@@ -22,6 +22,16 @@ class OrderController extends Controller
         return response()->json(['data' => $this->orderService->review($request)]);
     }
 
+    public function mine(Request $request)
+    {
+        return OrderResource::collection($this->orderService->listForUser($request->user()));
+    }
+
+    public function cancel(Request $request, int $id)
+    {
+        return new OrderResource($this->orderService->cancel($id, $request->user()));
+    }
+
     public function store(StoreOrderRequest $request)
     {
         return (new OrderResource($this->orderService->checkout($request, $request->validated('address_id'))))

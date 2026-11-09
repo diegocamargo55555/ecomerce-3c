@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Address;
 use App\Models\Cart;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
@@ -89,6 +90,32 @@ class OrderService
         abort_unless($order->users_id === $user->id || $user->role === 'admin', 403);
 
         return $order->load('items', 'address', 'payments');
+    }
+
+    public function listForUser(User $user): Collection
+    {
+        return Order::where('users_id', $user->id)->orderByDesc('created_at')->orderByDesc('id')->get();
+    }
+
+    public function cancel(int $id, User $user): Order
+    {
+        return DB::transaction(function () use ($id, $user) {
+            $order = Order::lockForUpdate()->findOrFail($id);
+            abort_unless($order->users_id === $user->id || $user->role === 'admin', 403);
+            abort_unless($order->status === 'pendente', 409, 'Este pedido não está aguardando pagamento.');
+            $payment = Payment::where('order_id', $id)->lockForUpdate()->firstOrNew();
+            abort_if($payment->exists && $payment->status !== 'pendente', 409, 'O pagamento deste pedido já foi processado.');
+            $items = $order->items()->orderBy('product_id')->lockForUpdate()->get();
+            $products = Product::withTrashed()->whereIn('id', $items->pluck('product_id'))
+                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            foreach ($items as $item) {
+                $products->get($item->product_id)->increment('stock', $item->quantity);
+            }
+            $payment->fill(['order_id' => $id, 'amount' => $order->total, 'status' => 'cancelado', 'paid_at' => null])->save();
+            $order->update(['status' => 'cancelado']);
+
+            return $order->load('items', 'address', 'payments');
+        }, 3);
     }
 
     public function listAll(): Collection

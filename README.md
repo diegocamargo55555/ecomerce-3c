@@ -61,6 +61,8 @@ O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, 
 | `GET /api/checkout`, `POST /api/orders`, `GET/POST /api/my/addresses` | Cliente ou admin autenticado, usando o próprio carrinho e endereço |
 | `GET /api/orders/:id` | Dono do pedido ou admin |
 | `POST /api/orders/:id/pay` | Somente o dono do pedido |
+| `GET /api/my/orders` | Pedidos da própria conta, inclusive para admins |
+| `POST /api/orders/:id/cancel` | Dono ou admin; somente pedidos pendentes |
 
 Sem sessão, rotas protegidas retornam 401; clientes recebem 403 nas operações administrativas, inclusive acessando a API diretamente. A Gate `admin` protege as rotas no backend. Cadastro e criação de usuários produzem clientes; enviar `role` no cadastro, criação ou edição de usuários retorna 422, inclusive valores vazios. O papel é retornado em `UserResource` e não é mass assignable. Não há endpoint de promoção de papel.
 
@@ -91,7 +93,7 @@ docker compose exec php php artisan migrate
 docker compose exec php php artisan db:seed
 ```
 
-Os cinco status estão definidos diretamente na migration que cria `orders`. O checkout cria pedidos pendentes e a confirmação de pagamento os torna pagos; envio, entrega e cancelamento ainda estão pendentes. Alterar a migration original não atualiza tabelas já criadas. A base local já aceita os cinco status e foi preservada.
+Os cinco status estão definidos diretamente na migration que cria `orders`. O checkout cria pedidos pendentes e a confirmação de pagamento os torna pagos; envio e entrega ainda estão pendentes. Alterar a migration original não atualiza tabelas já criadas. A base local já aceita os cinco status e foi preservada.
 
 ## Página pública do produto
 
@@ -126,13 +128,23 @@ A criação usa uma transação com bloqueio do carrinho, dos itens e dos produt
 
 A página `/#order/ID` mostra o pedido, seus itens congelados, endereço, frete e total. O dono encontra a ação **Confirmar pagamento simulado**. `POST /api/orders/{id}/pay` não recebe valor, dados de cartão ou gateway; em uma transação, usa o total gravado no pedido, registra a data/hora no pagamento e altera o pedido para pago. Uma segunda tentativa ou pedido fora de pendente retorna 409; outro usuário, inclusive admin de outro pedido, recebe 403. O pagamento não baixa estoque novamente. O dono e admins podem consultar o detalhe por `GET /api/orders/{id}`.
 
-Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. As antigas escritas manuais desses registros foram desabilitadas na API e na interface para preservar estoque, preços e pagamentos; novas regras de envio, entrega e cancelamento serão ações próprias. A unicidade de `payments.order_id` está definida na migration original de pagamentos; o índice também foi aplicado à base local, preservando seus dados. Outras bases existentes precisam desse ajuste, pois editar uma migration já executada não altera o schema.
+Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. As antigas escritas manuais desses registros foram desabilitadas na API e na interface para preservar estoque, preços e pagamentos; envio e entrega permanecem pendentes; o cancelamento usa a ação própria descrita abaixo. A unicidade de `payments.order_id` está definida na migration original de pagamentos; o índice também foi aplicado à base local, preservando seus dados. Outras bases existentes precisam desse ajuste, pois editar uma migration já executada não altera o schema.
 
 Os testes de backend também verificam autorização, valores enviados pelo cliente, limites monetários, preços congelados, repetição do checkout e do pagamento e rollback em falhas depois da baixa de estoque ou da confirmação do pagamento. A verificação HTTP em banco MySQL temporário cobre cookies reais e concorrência entre sessões, sem modificar os dados de compras do banco principal.
 
+## Meus pedidos e cancelamento
+
+Abra **http://localhost/#my-orders** pelo link “Meus pedidos”. A lista mostra número, data, total e status, dos mais recentes aos mais antigos, sem filtros ou paginação. Visitantes vão ao login e retornam ao histórico após autenticar. `GET /api/my/orders` retorna `data` com somente os pedidos da conta autenticada; parâmetros de outro usuário não alteram o proprietário consultado. A listagem administrativa `GET /api/orders` continua exclusiva de admins.
+
+No detalhe `#order/ID`, o dono ou um admin pode escolher **Cancelar pedido** e confirmar no modal. `POST /api/orders/{id}/cancel` não exige corpo: quantidades, valores e status vêm do banco. A ação aceita somente pedidos pendentes, devolve o estoque dos itens e marca pedido e pagamento como cancelados, preservando os valores históricos. Produtos inativos ou excluídos logicamente recebem o estoque sem serem reativados. Pedidos antigos sem pagamento recebem um registro cancelado com o total original.
+
+A transação bloqueia pedido, pagamento, itens e produtos. Pagamento e cancelamento disputam o mesmo bloqueio do pedido: só uma ação pode vencer. Cancelar novamente ou cancelar pedido pago/enviado/entregue retorna 409, sem nova devolução. Sem sessão retorna 401, cliente que não é dono recebe 403, e pedido inexistente retorna 404. Falhas desfazem toda a operação. O cancelamento não repõe itens no carrinho. O endereço continua vinculado ao cadastro existente, sem cópia histórica nesta etapa.
+
+Verifique com duas contas que o histórico é isolado; crie um pedido pendente, cancele e confira o estoque e o pagamento. Repita a chamada e tente pagar o pedido cancelado: ambas retornam 409. Os testes automatizados cobrem autorização, produtos excluídos, repetição e rollback. A verificação HTTP em MySQL temporário também confirmou seis disputas entre sessões (cancelamento duplo e pagamento contra cancelamento), com uma única ação vencedora e estoque consistente. SQLite não reproduz esses bloqueios.
+
 ## Limites desta etapa
 
-Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Perfil do cliente, histórico de pedidos, cancelamento com devolução de estoque e transições de envio/entrega permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
+Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Perfil do cliente e transições de envio/entrega permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
 
 Os CRUDs administrativos de catálogo, usuários, endereços e carrinhos permanecem disponíveis. Pedidos, seus itens e pagamentos são gerados pelo fluxo de compra e consultados pelo painel. Não use as credenciais de demonstração em produção.
 

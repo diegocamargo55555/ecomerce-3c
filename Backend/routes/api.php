@@ -30,9 +30,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('me', [AuthController::class, 'me']);
     Route::post('logout', [AuthController::class, 'logout']);
     Route::get('checkout', [OrderController::class, 'review']);
+    Route::get('my/orders', [OrderController::class, 'mine']);
     Route::post('orders', [OrderController::class, 'store']);
     Route::get('orders/{id}', [OrderController::class, 'show'])->whereNumber('id');
     Route::post('orders/{id}/pay', [PaymentController::class, 'pay'])->whereNumber('id');
+    Route::post('orders/{id}/cancel', [OrderController::class, 'cancel'])->whereNumber('id');
     Route::get('my/addresses', [AddressController::class, 'mine']);
     Route::post('my/addresses', [AddressController::class, 'storeOwn']);
 

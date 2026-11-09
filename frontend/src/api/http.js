@@ -155,6 +155,14 @@ export async function payOrder(id) {
   return resourceData(await api(`/api/orders/${encodeURIComponent(id)}/pay`, { method: "POST" }));
 }
 
+export async function getMyOrders() {
+  return resourceData(await api('/api/my/orders'));
+}
+
+export async function cancelOrder(id) {
+  return resourceData(await api(`/api/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST' }));
+}
+
 export async function listResource(key) {
   const path = key === "products" ? "admin/products" : key;
   const data = resourceData(await api(`/api/${path}`));

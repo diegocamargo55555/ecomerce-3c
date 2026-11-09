@@ -25,7 +25,7 @@ const productId = computed(() =>
   page.value.startsWith("products/") ? page.value.slice(9) : "",
 );
 const orderId = computed(() => page.value.startsWith("order/") ? page.value.slice(6) : "");
-const customerPage = computed(() => page.value === "checkout" || !!orderId.value);
+const customerPage = computed(() => ["checkout", "my-orders"].includes(page.value) || !!orderId.value);
 const afterLogin = ref("cart");
 const menuOpen = ref(false);
 const compactLayout = window.matchMedia("(max-width: 760px)");
@@ -41,6 +41,7 @@ const title = computed(
       ? "Sua conta"
       : page.value === "cart" ? "Meu carrinho"
       : page.value === "checkout" ? "Finalizar compra"
+      : page.value === "my-orders" ? "Meus pedidos"
       : orderId.value ? `Pedido #${orderId.value}`
       : productId.value ? "Produto" : resources[resourceKey.value]?.title || "Visão geral",
 );
@@ -65,7 +66,7 @@ function syncRoute() {
     Object.hasOwn(resources, key) ||
     /^products\/[^/]+$/.test(key) ||
     /^order\/[^/]+$/.test(key) ||
-    ["login", "cart", "checkout", "overview", "manage-products", "manage-categories"].includes(key)
+    ["login", "cart", "checkout", "my-orders", "overview", "manage-products", "manage-categories"].includes(key)
       ? key
       : "products";
   if (!starting.value && !startError.value) {

@@ -1,15 +1,21 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { getOrder, payOrder } from "../api/http.js";
+import { getOrder, payOrder, cancelOrder } from "../api/http.js";
 import { currency, date, resources } from "../resources.js";
 import Icon from "./Icon.vue";
+import Modal from "./Modal.vue";
 
 const props = defineProps({ orderId: String, user: Object });
 const order = ref(null);
 const loading = ref(true);
 const error = ref("");
-const paymentError = ref("");
+const actionError = ref("");
 const paying = ref(false);
+const cancelling = ref(false);
+const confirmingCancel = ref(false);
+const notice = ref("");
+const busy = computed(() => paying.value || cancelling.value);
+const canCancel = computed(() => order.value?.status === "pendente" && (props.user?.id === order.value.users_id || props.user?.role === "admin"));
 const statusNames = Object.fromEntries(resources.orders.fields.find(field => field.key === "status").options);
 const payment = computed(() => order.value?.payments.find(item => item.status === "pago"));
 
@@ -25,24 +31,45 @@ async function load() {
   }
 }
 async function pay() {
-  if (paying.value) return;
+  if (busy.value || confirmingCancel.value) return;
   paying.value = true;
-  paymentError.value = "";
+  actionError.value = "";
   try {
     order.value = await payOrder(props.orderId);
   } catch (failure) {
-    paymentError.value = failure.message;
+    actionError.value = failure.message;
     if (failure.status === 409) await load();
   } finally {
     paying.value = false;
+  }
+}
+async function cancel() {
+  if (busy.value) return;
+  cancelling.value = true;
+  actionError.value = "";
+  try {
+    order.value = await cancelOrder(props.orderId);
+    notice.value = "Pedido cancelado. Os itens foram devolvidos ao estoque.";
+    confirmingCancel.value = false;
+  } catch (failure) {
+    actionError.value = failure.message;
+    if (failure.status === 409 || failure.status === 404) {
+      confirmingCancel.value = false;
+      await load();
+    }
+  } finally {
+    cancelling.value = false;
   }
 }
 onMounted(load);
 </script>
 
 <template>
-  <section class="order-page" :aria-busy="loading || paying">
+  <section class="order-page" :aria-busy="loading || busy">
     <a href="#products" class="text-button order-back"><Icon name="left" :size="16" /> Voltar à loja</a>
+    <a href="#my-orders" class="text-button order-back">Meus pedidos</a>
+    <a v-if="user?.role === 'admin'" href="#orders" class="text-button order-back">Todos os pedidos</a>
+    <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <div v-if="loading" class="panel empty-state" role="status"><span class="spinner" /> Carregando pedido…</div>
     <div v-else-if="error" class="panel empty-state" role="alert">
       <Icon name="alert" :size="32" /><h1>Pedido indisponível</h1><p>{{ error }}</p>
@@ -51,7 +78,7 @@ onMounted(load);
     <template v-else-if="order">
       <header class="order-heading">
         <div><span class="eyebrow">3C COMMERCE / SEU PEDIDO</span><h1>Pedido #{{ order.id }}</h1><p class="muted">Criado em {{ date(order.created_at) }}</p></div>
-        <span class="badge" :class="payment ? 'success' : 'warning'">{{ statusNames[order.status] || order.status }}</span>
+        <span class="badge" :class="order.status === 'cancelado' ? 'danger' : payment ? 'success' : 'warning'">{{ statusNames[order.status] || order.status }}</span>
       </header>
       <div class="order-layout">
         <section class="panel order-details">
@@ -70,7 +97,7 @@ onMounted(load);
           </address>
         </section>
         <aside class="panel order-payment">
-          <h2>{{ payment ? "Pagamento confirmado" : "Pagamento do pedido" }}</h2>
+          <h2>{{ order.status === "cancelado" ? "Pedido cancelado" : payment ? "Pagamento confirmado" : "Pagamento do pedido" }}</h2>
           <p class="notice">Pagamento simulado para fins acadêmicos. Nenhuma cobrança real será realizada.</p>
           <dl class="order-totals">
             <div><dt>Produtos</dt><dd>{{ currency(order.subtotal) }}</dd></div>
@@ -78,19 +105,30 @@ onMounted(load);
             <div class="order-total"><dt>Total</dt><dd>{{ currency(order.total) }}</dd></div>
           </dl>
           <p v-if="payment" class="order-paid" role="status"><Icon name="check" :size="20" /> Confirmado em {{ new Date(payment.paid_at).toLocaleString('pt-BR') }}</p>
-          <p v-if="paymentError" class="alert" role="alert">{{ paymentError }}</p>
-          <button v-if="order.status === 'pendente' && user?.id === order.users_id" type="button" class="button primary" :disabled="paying" @click="pay">
+          <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
+          <button v-if="order.status === 'pendente' && user?.id === order.users_id" type="button" class="button primary" :disabled="busy || confirmingCancel" @click="pay">
             <span v-if="paying" class="spinner" />{{ paying ? "Confirmando…" : "Confirmar pagamento simulado" }}
           </button>
-          <small class="muted">Guarde o endereço desta página para consultar seu pedido novamente.</small>
+          <button v-if="canCancel" type="button" class="button danger" :disabled="busy" @click="actionError = ''; confirmingCancel = true">Cancelar pedido</button>
+          <p v-if="order.status === 'cancelado'" class="muted">Este pedido foi cancelado e não pode ser pago.</p>
         </aside>
       </div>
     </template>
+    <Modal v-if="confirmingCancel" title="Cancelar pedido?" :busy="busy" small @close="confirmingCancel = false">
+      <div class="modal-body">
+        <p>Cancelar o pedido #{{ order.id }}? Os itens voltarão ao estoque. Esta ação não pode ser desfeita.</p>
+        <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="button secondary" :disabled="busy" @click="confirmingCancel = false">Manter pedido</button>
+        <button type="button" class="button danger" :disabled="busy" @click="cancel"><span v-if="cancelling" class="spinner" />{{ cancelling ? "Cancelando…" : "Confirmar cancelamento" }}</button>
+      </footer>
+    </Modal>
   </section>
 </template>
 
 <style scoped>
-.order-back { margin-bottom: 26px; }
+.order-back { margin: 0 20px 26px 0; }
 .order-heading { display: flex; gap: 20px; align-items: center; justify-content: space-between; margin-bottom: 28px; }
 .order-heading p { margin-top: 8px; }
 .order-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
