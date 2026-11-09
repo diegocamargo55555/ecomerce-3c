@@ -14,6 +14,10 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    protected $attributes = [
+        'role' => 'cliente',
+    ];
+
     /**
      * The attributes that are mass assignable.
      *

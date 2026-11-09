@@ -1,20 +1,18 @@
 # 3C Commerce
 
-Interface em Vue 3 para a API Laravel existente, com vitrine minimalista em azul e laranja. A tela inicial exibe produtos sem exigir login. Produtos e categorias podem ser consultados por visitantes; as funções de gestão exigem autenticação.
+Interface em Vue 3 para a API Laravel existente, com vitrine minimalista em azul e laranja. A tela inicial exibe produtos sem exigir login. Produtos e categorias podem ser consultados por visitantes; as funções de gestão são exclusivas de admins.
 
 ## Executar
 
 ### Com Docker
 
-Na raiz do projeto, execute:
+Siga a [inicialização na raiz](../README.md), incluindo ambiente, migrations e seeder. Para subir todos os serviços necessários:
 
 ```sh
-docker compose up -d --build frontend
+docker compose up -d --build
 ```
 
-Abra **http://127.0.0.1:5173/**. O Compose também inicia o PHP e o MySQL necessários. Os arquivos locais ficam montados no container para atualização automática, com `node_modules` isolado em um volume do Docker.
-
-O frontend encaminha `/api` e `/sanctum` para `http://php:8000` pela rede do Compose e usa `http://127.0.0.1:8000` como origem de sessão aceita pelo Sanctum.
+Abra **http://localhost/**. O Nginx encaminha API, Sanctum e imagens ao PHP e as demais chamadas ao Vite. As portas 5173 e 8000 não são publicadas. Os arquivos locais ficam montados para atualização automática, com `node_modules` isolado em um volume do Docker.
 
 ```sh
 docker compose exec frontend npm test
@@ -28,21 +26,13 @@ Ao alterar dependências, reconstrua a imagem e renove o volume de `node_modules
 docker compose up -d --build --renew-anon-volumes --no-deps frontend
 ```
 
-### Sem Docker
+### Desenvolvimento e build
 
-Com o backend existente disponível na porta 8000, execute nesta pasta:
-
-```sh
-npm install
-npm run dev
-```
-
-Abra **http://127.0.0.1:5173/** para consultar os produtos sem login. Para gerenciar a loja, use o acesso à conta no cabeçalho, com uma conta existente ou **Criar conta**.
+O fluxo documentado usa Docker e o Nginx na porta 80. O Vite mantém um proxy opcional para execução fora do Compose, configurável por `API_PROXY_TARGET` e `API_SESSION_ORIGIN`; nesse modo, o backend e os domínios do Sanctum precisam ser configurados para a origem utilizada.
 
 ```sh
-npm test         # testes do cliente HTTP, CSRF e erros
-npm run build   # gera dist/
-npm run preview # serve o build em http://127.0.0.1:5174/
+npm test
+npm run build
 ```
 
 ## Funcionalidades
@@ -50,7 +40,7 @@ npm run preview # serve o build em http://127.0.0.1:5174/
 - Vitrine de produtos em cards, com busca por nome, descrição e categoria, filtro por categoria, ordenação por preço/nome/recência e paginação local com oito produtos.
 - Detalhes de produtos em diálogo, usando os dados já recebidos da listagem. Imagens ausentes ou inválidas exibem um placeholder; produtos indisponíveis permanecem sinalizados no catálogo.
 - Login, cadastro, restauração e encerramento da sessão com Sanctum.
-- Visão geral com dados reais de pedidos, produtos, estoque e pagamentos.
+- Visão geral exclusiva do admin, com dados reais de pedidos, produtos, estoque e pagamentos.
 - Listagem, criação, edição e exclusão de produtos, categorias, pessoas, endereços, carrinhos, itens dos carrinhos, pedidos, itens dos pedidos e pagamentos.
 - Busca, filtros, ordenação e paginação locais; exportação CSV dos resultados filtrados.
 - Loading, estados vazios, erros por campo, nova tentativa e confirmação de exclusão.
@@ -68,9 +58,9 @@ O cliente usa exclusivamente as rotas existentes:
 
 Os recursos usam `GET` para listagem, `POST` para criação e `PATCH` / `DELETE` em `/:id`. O cliente aceita os registros de criação sem envelope e os Resources com `{ data: ... }` retornados pela API. Não há registros fictícios nem persistência paralela no navegador.
 
-As listagens `GET /api/products` e `GET /api/categories` são públicas. Os endpoints individuais, alterações no catálogo e os demais recursos continuam protegidos por Sanctum. A vitrine não exibe botões de criação, edição ou exclusão.
+As listagens `GET /api/products` e `GET /api/categories` são públicas. Os endpoints individuais exigem sessão Sanctum. Alterações no catálogo e todos os demais recursos exigem admin, além da sessão. A vitrine não exibe botões de criação, edição ou exclusão.
 
-As rotas `#products` e `#categories` abrem a vitrine; `#overview` abre a gestão (ou o login). Na gestão, `#manage-products` e `#manage-categories` reutilizam as tabelas e formulários existentes. Busca e categoria selecionada são reiniciadas ao recarregar a página. Não há carrinho de compras público, checkout ou promoções simuladas.
+As rotas `#products` e `#categories` abrem a vitrine; `#login` permite entrar ou criar uma conta cliente. Após autenticar, clientes vão ao catálogo e admins à visão geral (`#overview`). Clientes que abrem telas de gestão voltam ao catálogo com aviso; visitantes vão ao login. Na gestão, `#manage-products` e `#manage-categories` reutilizam as tabelas e formulários existentes. Busca e categoria selecionada são reiniciadas ao recarregar a página. Não há carrinho de compras público, checkout ou promoções simuladas.
 
 Os valores de status enviados são `pendente`, `pago` e `cancelado`. Endereços e pedidos usam `users_id`; carrinhos usam `user_id`. Como a resposta de endereço não inclui `users_id`, esse campo é enviado apenas no cadastro, preservando o vínculo na edição. O complemento é obrigatório no cadastro, conforme o contrato atual. Pagamentos são registros da API; não há processamento financeiro externo. Pedidos, seus itens e pagamentos são cadastrados separadamente, pois a API não oferece checkout transacional.
 
@@ -80,15 +70,6 @@ As listas atuais não são paginadas no servidor. Busca, ordenação e paginaç�
 
 ## Proxy e cookies
 
-O Vite encaminha `/api` e `/sanctum` para `http://127.0.0.1:8000`, mantendo o navegador na mesma origem do frontend. O proxy usa uma origem já aceita pela configuração atual do Sanctum; não exige mudar CORS, rotas ou arquivos do backend.
+No Compose, `proxy/default.conf` encaminha `/api/`, `/sanctum/`, `/images/` e `/storage/` para `php:8000` e o restante, incluindo WebSocket, para `frontend:5173`. O navegador usa somente **http://localhost**. O Laravel aceita essa origem no Sanctum; os cookies são HttpOnly, SameSite=Lax, sem domínio explícito e compatíveis com HTTP local. O cliente usa cookies de sessão e XSRF, com renovação após 419, e não armazena senha nem token de autenticação em localStorage.
 
-Opcionalmente, configure em `.env.local`, **nesta pasta**:
-
-```dotenv
-API_PROXY_TARGET=http://127.0.0.1:8000
-API_SESSION_ORIGIN=http://127.0.0.1:8000
-```
-
-`API_SESSION_ORIGIN` deve ser uma origem já aceita pelo Sanctum existente. Se omitida, usa a origem de `API_PROXY_TARGET`. Nunca coloque a `APP_KEY` ou credenciais de banco no frontend. O cliente usa cookies de sessão e o token XSRF; não armazena senha nem token de autenticação em localStorage.
-
-`npm run preview` também inclui o proxy. Para hospedar `dist/` em outro servidor, esse servidor precisa encaminhar `/api` e `/sanctum` para a API, preservando os cookies e a origem de sessão configurada. O build estático sozinho não inclui o servidor proxy.
+O build estático sozinho não inclui o proxy. Para hospedar `dist/`, configure o servidor com os mesmos encaminhamentos e os cookies para a origem de destino.

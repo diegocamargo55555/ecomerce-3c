@@ -30,7 +30,10 @@ const toast = ref(null);
 let toastTimer;
 const resourceKey = computed(() => page.value.replace(/^manage-/, ""));
 const title = computed(
-  () => resources[resourceKey.value]?.title || "Visão geral",
+  () =>
+    page.value === "login"
+      ? "Sua conta"
+      : resources[resourceKey.value]?.title || "Visão geral",
 );
 const activeKey = computed(
   () => resources[resourceKey.value]?.parent || resourceKey.value,
@@ -38,6 +41,7 @@ const activeKey = computed(
 const publicPage = computed(() =>
   ["products", "categories"].includes(page.value),
 );
+const isAdmin = computed(() => user.value?.role === "admin");
 
 function managementPage(key) {
   return ["products", "categories"].includes(key) ? `manage-${key}` : key;
@@ -50,9 +54,22 @@ function syncRoute() {
   const key = window.location.hash.slice(1);
   page.value =
     Object.hasOwn(resources, key) ||
-    ["overview", "manage-products", "manage-categories"].includes(key)
+    ["login", "overview", "manage-products", "manage-categories"].includes(key)
       ? key
       : "products";
+  if (!starting.value && !startError.value) {
+    if (page.value === "login" && user.value) {
+      navigate(isAdmin.value ? "overview" : "products");
+      return;
+    }
+    if (!publicPage.value && page.value !== "login" && !isAdmin.value) {
+      notice.value = user.value
+        ? "O painel é exclusivo de administradores. Você pode navegar pelo catálogo."
+        : "Entre na sua conta para continuar.";
+      navigate(user.value ? "products" : "login");
+      return;
+    }
+  }
   menuOpen.value = false;
   document.title = `${title.value} · 3C Commerce`;
 }
@@ -103,12 +120,13 @@ async function start() {
     if (failure.status !== 401) startError.value = failure.message;
   } finally {
     starting.value = false;
+    syncRoute();
   }
 }
 function authenticated(value) {
   user.value = value;
   notice.value = "";
-  navigate("products");
+  navigate(isAdmin.value ? "overview" : "products");
 }
 async function signOut() {
   signingOut.value = true;
@@ -154,7 +172,7 @@ onBeforeUnmount(() => {
     >
   </div>
   <AuthView
-    v-else-if="!user && !publicPage"
+    v-else-if="page === 'login' && !user"
     :notice="notice"
     @authenticated="authenticated"
   />
@@ -167,7 +185,7 @@ onBeforeUnmount(() => {
     @navigate="navigate"
     @sign-out="signOut"
   />
-  <div v-else class="app-layout">
+  <div v-else-if="isAdmin" class="app-layout">
     <a
       class="skip-link"
       href="#main-content"

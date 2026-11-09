@@ -138,8 +138,14 @@ onMounted(load);
         </form>
         <div class="store-account">
           <a
-            href="#overview"
-            :aria-label="user ? 'Acessar gestão' : 'Entrar para gerenciar'"
+            :href="
+              user?.role === 'admin' ? '#overview' : user ? '#products' : '#login'
+            "
+            :aria-label="
+              user?.role === 'admin'
+                ? 'Acessar gestão'
+                : user ? 'Sua conta' : 'Entrar ou criar conta'
+            "
           >
             <Icon name="users" :size="23" />
             <span
@@ -147,7 +153,9 @@ onMounted(load);
                 user ? `Olá, ${user.name.split(" ")[0]}` : "Sua conta"
               }}</small
               ><strong>{{
-                user ? "Acessar gestão" : "Entre ou cadastre-se"
+                user?.role === 'admin'
+                  ? "Acessar gestão"
+                  : user ? "Sua conta" : "Entre ou cadastre-se"
               }}</strong></span
             >
           </a>

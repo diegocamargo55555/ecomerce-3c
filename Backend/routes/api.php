@@ -25,32 +25,39 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('me', [AuthController::class, 'me']);
     Route::post('logout', [AuthController::class, 'logout']);
 
-    Route::apiResource('users', UserController::class)
-    ->whereNumber('user');
-
-    Route::apiResource('addresses', AddressController::class)
-    ->whereNumber('address');
-
-    Route::apiResource('orders', OrderController::class)
-    ->whereNumber('order');
-
-    Route::apiResource('payments', PaymentController::class)
-    ->whereNumber('payment');
-
     Route::apiResource('categories', CategoryController::class)
-    ->except(['index'])
-    ->whereNumber('category');
-
+        ->only(['show'])->whereNumber('category');
     Route::apiResource('products', ProductController::class)
-    ->except(['index'])
-    ->whereNumber('product');
+        ->only(['show'])->whereNumber('product');
 
-    Route::apiResource('carts', CartController::class)
-    ->whereNumber('cart');
+    Route::middleware('can:admin')->group(function () {
+        Route::apiResource('users', UserController::class)
+            ->whereNumber('user');
 
-    Route::apiResource('cart-items', CartItemController::class)
-    ->whereNumber('cart_item');
+        Route::apiResource('addresses', AddressController::class)
+            ->whereNumber('address');
 
-    Route::apiResource('order-items', OrderItemController::class)
-    ->whereNumber('order_item');
+        Route::apiResource('orders', OrderController::class)
+            ->whereNumber('order');
+
+        Route::apiResource('payments', PaymentController::class)
+            ->whereNumber('payment');
+
+        Route::apiResource('categories', CategoryController::class)
+            ->except(['index', 'show'])
+            ->whereNumber('category');
+
+        Route::apiResource('products', ProductController::class)
+            ->except(['index', 'show'])
+            ->whereNumber('product');
+
+        Route::apiResource('carts', CartController::class)
+            ->whereNumber('cart');
+
+        Route::apiResource('cart-items', CartItemController::class)
+            ->whereNumber('cart_item');
+
+        Route::apiResource('order-items', OrderItemController::class)
+            ->whereNumber('order_item');
+    });
 });

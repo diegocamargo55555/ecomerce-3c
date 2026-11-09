@@ -56,15 +56,15 @@ async function submit() {
         ><span class="brand-mark"><Icon name="bag" :size="23" /></span
         ><span
           >3c<span class="brand-light">commerce</span
-          ><small>GESTÃO DA SUA LOJA</small></span
+          ><small>ESCOLHAS PARA O SEU DIA</small></span
         ></a
       >
       <div class="auth-message">
-        <span class="eyebrow">MENOS COMPLICAÇÃO. MAIS CONTROLE.</span>
-        <h1>Sua loja,<br />em ordem.</h1>
+        <span class="eyebrow">BEM-VINDO À SUA CONTA.</span>
+        <h1>Que bom<br />ter você aqui.</h1>
         <p>
-          Um espaço simples para cuidar dos produtos,<br class="desktop-only" />
-          dos pedidos e de quem compra de você.
+          Entre ou crie sua conta e conheça<br class="desktop-only" />
+          os produtos da nossa loja.
         </p>
         <div class="auth-illustration" aria-hidden="true">
           <div class="illustration-card">
@@ -104,8 +104,8 @@ async function submit() {
         <p class="muted">
           {{
             mode === "login"
-              ? "Entre na sua conta para cuidar da sua loja."
-              : "Crie sua conta e organize sua operação."
+              ? "Entre na sua conta para continuar."
+              : "Crie sua conta para acessar a loja."
           }}
         </p>
         <div class="auth-tabs" aria-label="Acesso">
@@ -222,15 +222,14 @@ async function submit() {
               busy
                 ? "Aguarde um instante…"
                 : mode === "login"
-                  ? "Entrar na minha loja"
+                  ? "Entrar na minha conta"
                   : "Criar minha conta"
             }}</span
             ><Icon v-if="!busy" name="right" :size="18" />
           </button>
         </form>
         <p class="auth-caption">
-          <Icon name="bag" :size="15" /> Sua operação começa com uma boa
-          organização.
+          <Icon name="bag" :size="15" /> Seus próximos favoritos estão por aqui.
         </p>
       </div>
       <span class="auth-bottom"
