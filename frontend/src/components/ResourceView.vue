@@ -255,7 +255,9 @@ async function remove() {
     await load();
   } catch (failure) {
     formError.value =
-      failure.status >= 500
+      failure.status === 409 && props.resourceKey === "categories"
+        ? "Não é possível excluir esta categoria: há produtos vinculados a ela. Mova ou exclua os produtos antes."
+        : failure.status >= 500
         ? "Não foi possível excluir. Este registro pode estar vinculado a outros dados da loja."
         : failure.message;
   } finally {

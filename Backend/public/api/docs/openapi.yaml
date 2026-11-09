@@ -404,15 +404,22 @@ paths:
       summary: Exclui uma categoria
       description: |
         **Admin.** Exclusão física. Uma categoria com produtos vinculados (inclusive
-        produtos excluídos logicamente) não pode ser removida: a chave estrangeira do
-        banco rejeita a operação e, como esse erro ainda não é tratado, a resposta atual é **500**.
+        produtos excluídos logicamente, que continuam no banco para preservar pedidos
+        antigos) não pode ser removida: a API retorna **409** e nada é alterado.
+        Mova ou exclua os produtos antes.
       responses:
         "204": { description: Excluída; sem corpo. }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: A categoria possui produtos vinculados.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example:
+                message: "Não é possível excluir a categoria Tintas: há 3 produto(s) vinculado(s). Mova ou exclua os produtos antes."
         "419": { $ref: "#/components/responses/CsrfMismatch" }
-        "500": { $ref: "#/components/responses/ForeignKeyError" }
 
   /api/cart:
     get:

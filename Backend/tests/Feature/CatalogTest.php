@@ -94,6 +94,34 @@ class CatalogTest extends TestCase
         }
     }
 
+    public function test_category_with_linked_products_cannot_be_deleted(): void
+    {
+        $withProducts = Category::where('slug', 'tintas')->firstOrFail();
+        $empty = Category::create(['name' => 'Vazia', 'slug' => 'vazia']);
+        $onlyDeleted = Category::create(['name' => 'Arquivada', 'slug' => 'arquivada']);
+        Product::create([
+            'name' => 'Antigo', 'description' => 'Excluído', 'price' => '1.00',
+            'category_id' => $onlyDeleted->id, 'stock' => 1, 'is_active' => true,
+        ])->delete();
+
+        $this->deleteJson("/api/categories/{$empty->id}")->assertUnauthorized();
+        $this->actingAs(User::factory()->create())
+            ->deleteJson("/api/categories/{$empty->id}")->assertForbidden();
+
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->deleteJson("/api/categories/{$withProducts->id}")
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'Não é possível excluir a categoria Tintas: há 1 produto(s) vinculado(s). Mova ou exclua os produtos antes.');
+        $this->deleteJson("/api/categories/{$onlyDeleted->id}")->assertStatus(409);
+        $this->assertDatabaseHas('categories', ['id' => $withProducts->id]);
+        $this->assertDatabaseHas('categories', ['id' => $onlyDeleted->id]);
+        $this->assertDatabaseHas('products', ['category_id' => $withProducts->id]);
+
+        $this->deleteJson("/api/categories/{$empty->id}")->assertNoContent();
+        $this->assertDatabaseMissing('categories', ['id' => $empty->id]);
+        $this->deleteJson('/api/categories/999999')->assertNotFound();
+    }
+
     public function test_only_admin_can_list_all_products_including_inactive_ones(): void
     {
         $this->getJson('/api/admin/products')->assertUnauthorized();
