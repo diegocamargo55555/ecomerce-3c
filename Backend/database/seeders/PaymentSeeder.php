@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Payment;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -11,17 +12,20 @@ class PaymentSeeder extends Seeder
     {
         $now = now();
         $userIds = DB::table('users')->pluck('id', 'email');
-        $orderIds = DB::table('orders')->pluck('id', 'users_id');
+        $orders = DB::table('orders')->get();
 
         $payments = [
-            ['user' => 'test@example.com', 'status' => 'pago', 'amount' => '439.70', 'paid_at' => $now],
-            ['user' => 'ana@example.com', 'status' => 'pendente', 'amount' => '299.90', 'paid_at' => null],
-            ['user' => 'bruno@example.com', 'status' => 'cancelado', 'amount' => '164.70', 'paid_at' => null],
+            ['user' => 'test@example.com', 'order_status' => 'pago', 'status' => 'pago', 'amount' => '439.70', 'paid_at' => $now],
+            ['user' => 'ana@example.com', 'order_status' => 'pendente', 'status' => 'pendente', 'amount' => '299.90', 'paid_at' => null],
+            ['user' => 'bruno@example.com', 'order_status' => 'cancelado', 'status' => 'cancelado', 'amount' => '164.70', 'paid_at' => null],
+            ['user' => 'test@example.com', 'order_status' => 'enviado', 'status' => 'pago', 'amount' => '369.90', 'paid_at' => $now],
+            ['user' => 'ana@example.com', 'order_status' => 'entregue', 'status' => 'pago', 'amount' => '69.80', 'paid_at' => $now],
         ];
 
         foreach ($payments as $payment) {
-            DB::table('payments')->insert([
-                'order_id' => $orderIds[$userIds[$payment['user']]],
+            Payment::firstOrCreate([
+                'order_id' => $orders->where('users_id', $userIds[$payment['user']])->firstWhere('status', $payment['order_status'])->id,
+            ], [
                 'status' => $payment['status'],
                 'amount' => $payment['amount'],
                 'paid_at' => $payment['paid_at'],

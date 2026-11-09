@@ -107,8 +107,23 @@ export function resourceData(response) {
 }
 
 export async function listResource(key) {
-  const data = resourceData(await api(`/api/${key}`));
+  const path = key === "products" ? "admin/products" : key;
+  const data = resourceData(await api(`/api/${path}`));
   if (!Array.isArray(data))
     throw new ApiError("A resposta recebida não contém uma lista válida.");
   return data;
+}
+
+export async function listCatalog({ search, category, sort, page }) {
+  const params = new URLSearchParams({ sort, page: String(page) });
+  if (search.trim()) params.set("search", search.trim());
+  if (category) params.set("category_id", category);
+  const response = await api(`/api/products?${params}`);
+  if (
+    !Array.isArray(response?.data) ||
+    !Number.isInteger(response?.meta?.total) ||
+    !Number.isInteger(response?.meta?.last_page)
+  )
+    throw new ApiError("A resposta recebida não contém um catálogo válido.");
+  return response;
 }

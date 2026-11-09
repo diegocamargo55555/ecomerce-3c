@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Cart_item;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -22,13 +23,19 @@ class CartItemSeeder extends Seeder
         ];
 
         foreach ($items as $item) {
-            DB::table('cart_items')->insert([
+            Cart_item::firstOrCreate([
                 'cart_id' => $cartIds[$userIds[$item['user']]],
                 'product_id' => $productIds[$item['product']],
+            ], [
                 'quantity' => $item['quantity'],
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
         }
+
+        Cart_item::firstOrCreate([
+            'cart_id' => DB::table('carts')->where('guest_token', CartSeeder::guestToken())->value('id'),
+            'product_id' => $productIds['Space Marines: Intercessors'],
+        ], ['quantity' => 2]);
     }
 }

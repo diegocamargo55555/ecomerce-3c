@@ -64,8 +64,13 @@ function cell(row, column) {
   if (column.format === "active") return value ? "Ativo" : "Inativo";
   if (column.format === "status")
     return (
-      { pendente: "Pendente", pago: "Pago", cancelado: "Cancelado" }[value] ||
-      value
+      {
+        pendente: "Pendente",
+        pago: "Pago",
+        enviado: "Enviado",
+        entregue: "Entregue",
+        cancelado: "Cancelado",
+      }[value] || value
     );
   if (resources[column.format]) return labelFor(column.format, value);
   return value ?? "—";
@@ -349,6 +354,16 @@ function exportCsv() {
               @click="filter = 'pago'"
             >
               Pagos</button
+            ><template v-if="resourceKey === 'orders'">
+              <button
+                :class="{ active: filter === 'enviado' }"
+                @click="filter = 'enviado'"
+              >Enviados</button>
+              <button
+                :class="{ active: filter === 'entregue' }"
+                @click="filter = 'entregue'"
+              >Entregues</button>
+            </template
             ><button
               :class="{ active: filter === 'cancelado' }"
               @click="filter = 'cancelado'"

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -14,7 +15,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([
+        DB::transaction(fn () => $this->call([
             UserSeeder::class,
             CategorySeeder::class,
             ProductSeeder::class,
@@ -25,6 +26,6 @@ class DatabaseSeeder extends Seeder
             OrderItemSeeder::class,
             PaymentSeeder::class,
             AdminUserSeeder::class,
-        ]);
+        ]));
     }
 }

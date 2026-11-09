@@ -12,7 +12,7 @@ cp Backend/.env.example Backend/.env # somente se o arquivo ainda não existir
 docker compose up -d --build
 docker compose exec php php artisan key:generate
 docker compose exec php php artisan migrate
-# Somente em uma base vazia: cria o catálogo, três clientes e o admin local.
+# Cria os exemplos ausentes e preserva os registros existentes.
 docker compose exec php php artisan db:seed
 ```
 
@@ -29,7 +29,7 @@ docker compose exec php php artisan db:seed --class=AdminUserSeeder
 
 O campo `role` é definido diretamente em `0001_01_01_000000_create_users_table.php`, limitado a `cliente` e `admin`, com padrão `cliente`. Alterar essa migration não atualiza tabelas já criadas: bancos antigos sem `role` precisam de ajuste do schema antes de usar esta versão. O banco local já possui a coluna e foi preservado.
 
-O seeder isolado cria `admin@example.com` com senha `password` somente em ambiente `local` ou `testing`. Se a conta já for admin, preserva seus dados e senha. Se o e-mail pertencer a um cliente, interrompe sem promover ou sobrescrever a conta. Não execute novamente o `DatabaseSeeder` numa base preenchida, pois os demais seeders inserem novos registros.
+O seeder isolado cria `admin@example.com` com senha `password` somente em ambiente `local` ou `testing`. Se a conta já for admin, preserva seus dados e senha. Se o e-mail pertencer a um cliente, interrompe sem promover ou sobrescrever a conta. O `DatabaseSeeder` pode ser repetido: cria somente os exemplos ausentes, sem redefinir preços, estoques, senhas ou registros já cadastrados. Produtos excluídos logicamente não são recriados. A carga roda em uma transação.
 
 Credenciais de demonstração, exclusivamente locais:
 
@@ -51,6 +51,7 @@ O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, 
 | Operação | Acesso |
 | --- | --- |
 | `GET /api/products`, `GET /api/categories`, `POST /api/register`, `POST /api/login` | Público |
+| `GET /api/admin/products` (todos os produtos, incluindo inativos) | Admin |
 | `GET /api/me`, `POST /api/logout` | Cliente ou admin autenticado |
 | `GET /api/products/:id`, `GET /api/categories/:id` | Cliente ou admin autenticado |
 | Criação, edição e exclusão de produtos/categorias | Admin |
@@ -68,14 +69,29 @@ docker compose exec proxy nginx -t
 docker compose ps
 ```
 
-Os testes de backend usam SQLite em memória, sem alterar os dados da loja, e cobrem autenticação, permissões, bloqueio de alteração de papel, padrão e restrição de papéis no schema inicial e repetição/conflito do seeder. Os testes do frontend cobrem o catálogo e o cliente HTTP, incluindo cookies e renovação de CSRF. O build estático em `frontend/dist` precisa de um servidor que encaminhe os mesmos caminhos da API e imagens.
+Os testes de backend forçam SQLite em memória, mesmo dentro do Compose, e verificam catálogo público, filtros, paginação, autorização da listagem administrativa, dados dos seeders, totais e repetição sem sobrescrever registros. Os testes do frontend cobrem o contrato paginado do catálogo e o cliente HTTP, incluindo cookies e renovação de CSRF. O build estático em `frontend/dist` precisa de um servidor que encaminhe os mesmos caminhos da API e imagens.
 
 Para conferir no navegador, abra o catálogo sem login, entre/crie uma conta cliente, recarregue, tente `#overview` e saia. Depois entre como admin e abra o painel. Na aba Network, requisições HTTP e WebSocket devem continuar em `localhost:80`; confira também imagens, cookies e o retorno 401 de `/api/me` após logout.
 
+## Catálogo e dados de demonstração
+
+`GET /api/products` retorna somente produtos ativos, em páginas de oito registros, com `data`, `links` e `meta`. Parâmetros: `search` (nome, descrição ou categoria), `category_id`, `sort` (`newest`, `price-asc`, `price-desc`, `name`), `page` e `per_page` (1 a 100). A vitrine usa os filtros e os totais da API. `GET /api/admin/products` mantém a lista completa para a gestão e seus relacionamentos.
+
+Os seeders criam 30 produtos em quatro categorias: os oito produtos originais e 22 kits de demonstração, que reutilizam a foto de uma unidade e indicam isso na descrição. Há produto inativo, produto ativo sem estoque, três carrinhos de clientes e um de visitante populados, além de cinco pedidos com itens e pagamentos consistentes (`pendente` significa aguardando pagamento, seguido de `pago`, `enviado`, `entregue` e `cancelado`). O token do carrinho de demonstração deriva de uma HMAC com a `APP_KEY`; não é publicado nem deve ser usado como sessão fixa de visitantes reais.
+
+Para completar uma base existente, preservando os dados:
+
+```sh
+docker compose exec php php artisan migrate
+docker compose exec php php artisan db:seed
+```
+
+Os cinco status estão definidos diretamente na migration que cria `orders`. A validação e os formulários administrativos reconhecem esses valores; as regras de transição continuam pendentes. Alterar a migration original não atualiza tabelas já criadas. A base local já aceita os cinco status e foi preservada.
+
 ## Limites desta etapa
 
-Clientes podem navegar no catálogo e entrar/sair da conta. Perfil do cliente, carrinho público, fusão de carrinhos, checkout, pagamento e novas transições de pedidos permanecem pendentes. Os detalhes visuais de produtos continuam em modal e o endpoint de detalhe continua exigindo autenticação. As listagens públicas ainda incluem produtos inativos, sinalizados como indisponíveis.
+Clientes podem navegar no catálogo e entrar/sair da conta. Perfil do cliente, carrinho público, fusão de carrinhos, checkout, pagamento e novas transições de pedidos permanecem pendentes. Os detalhes visuais de produtos continuam em modal e o endpoint de detalhe continua exigindo autenticação. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
 
 Os CRUDs administrativos existentes foram preservados. Pedidos, itens e pagamentos ainda são registros separados, sem checkout transacional ou novas regras financeiras. Não use as credenciais de demonstração em produção.
 
-Mais detalhes: [frontend](frontend/README.md), [backend e fotos](Backend/README.md) e [pendências](PENDENCIAS_PROJETO.md).
+Mais detalhes: [frontend](frontend/README.md), [backend e fotos](Backend/README.md) e requisitos em `Projeto.pdf`.

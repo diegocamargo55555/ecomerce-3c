@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Category;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class CategorySeeder extends Seeder
 {
@@ -19,7 +19,7 @@ class CategorySeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            DB::table('categories')->insert([
+            Category::firstOrCreate(['slug' => $category['slug']], [
                 'name' => $category['name'],
                 'slug' => $category['slug'],
                 'description' => $category['description'],

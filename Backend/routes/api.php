@@ -31,6 +31,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->only(['show'])->whereNumber('product');
 
     Route::middleware('can:admin')->group(function () {
+        Route::get('admin/products', [ProductController::class, 'adminIndex']);
+
         Route::apiResource('users', UserController::class)
             ->whereNumber('user');
 

@@ -37,8 +37,8 @@ npm run build
 
 ## Funcionalidades
 
-- Vitrine de produtos em cards, com busca por nome, descrição e categoria, filtro por categoria, ordenação por preço/nome/recência e paginação local com oito produtos.
-- Detalhes de produtos em diálogo, usando os dados já recebidos da listagem. Imagens ausentes ou inválidas exibem um placeholder; produtos indisponíveis permanecem sinalizados no catálogo.
+- Vitrine de produtos em cards, com busca por nome, descrição e categoria, filtro por categoria, ordenação por preço/nome/recência e paginação pela API com oito produtos por página.
+- Detalhes de produtos em diálogo, usando os dados já recebidos da listagem. Imagens ausentes ou inválidas exibem um placeholder; produtos inativos ficam ocultos; produtos ativos sem estoque permanecem sinalizados no catálogo.
 - Login, cadastro, restauração e encerramento da sessão com Sanctum.
 - Visão geral exclusiva do admin, com dados reais de pedidos, produtos, estoque e pagamentos.
 - Listagem, criação, edição e exclusão de produtos, categorias, pessoas, endereços, carrinhos, itens dos carrinhos, pedidos, itens dos pedidos e pagamentos.
@@ -58,15 +58,15 @@ O cliente usa exclusivamente as rotas existentes:
 
 Os recursos usam `GET` para listagem, `POST` para criação e `PATCH` / `DELETE` em `/:id`. O cliente aceita os registros de criação sem envelope e os Resources com `{ data: ... }` retornados pela API. Não há registros fictícios nem persistência paralela no navegador.
 
-As listagens `GET /api/products` e `GET /api/categories` são públicas. Os endpoints individuais exigem sessão Sanctum. Alterações no catálogo e todos os demais recursos exigem admin, além da sessão. A vitrine não exibe botões de criação, edição ou exclusão.
+As listagens `GET /api/products` e `GET /api/categories` são públicas. A listagem pública de produtos aceita filtros e devolve `data`, `links` e `meta`; a gestão usa `GET /api/admin/products`, incluindo inativos. Os endpoints individuais exigem sessão Sanctum. Alterações no catálogo e todos os demais recursos exigem admin, além da sessão. A vitrine não exibe botões de criação, edição ou exclusão.
 
 As rotas `#products` e `#categories` abrem a vitrine; `#login` permite entrar ou criar uma conta cliente. Após autenticar, clientes vão ao catálogo e admins à visão geral (`#overview`). Clientes que abrem telas de gestão voltam ao catálogo com aviso; visitantes vão ao login. Na gestão, `#manage-products` e `#manage-categories` reutilizam as tabelas e formulários existentes. Busca e categoria selecionada são reiniciadas ao recarregar a página. Não há carrinho de compras público, checkout ou promoções simuladas.
 
-Os valores de status enviados são `pendente`, `pago` e `cancelado`. Endereços e pedidos usam `users_id`; carrinhos usam `user_id`. Como a resposta de endereço não inclui `users_id`, esse campo é enviado apenas no cadastro, preservando o vínculo na edição. O complemento é obrigatório no cadastro, conforme o contrato atual. Pagamentos são registros da API; não há processamento financeiro externo. Pedidos, seus itens e pagamentos são cadastrados separadamente, pois a API não oferece checkout transacional.
+Pedidos aceitam `pendente`, `pago`, `enviado`, `entregue` e `cancelado`; pagamentos aceitam `pendente`, `pago` e `cancelado`. Endereços e pedidos usam `users_id`; carrinhos usam `user_id`. Como a resposta de endereço não inclui `users_id`, esse campo é enviado apenas no cadastro, preservando o vínculo na edição. O complemento é obrigatório no cadastro, conforme o contrato atual. Pagamentos são registros da API; não há processamento financeiro externo. Pedidos, seus itens e pagamentos são cadastrados separadamente, pois a API não oferece checkout transacional.
 
 A API pode impedir a exclusão de registros vinculados. Produtos usam exclusão lógica: uma categoria ainda pode ter vínculos mesmo depois de seus produtos deixarem de aparecer na listagem. A interface informa a falha sem alterar as regras do backend.
 
-As listas atuais não são paginadas no servidor. Busca, ordenação e paginação acontecem sobre os registros retornados, e os relacionamentos são resolvidos pelas listagens existentes.
+Na vitrine, busca, filtro por categoria, ordenação e paginação são executados no servidor. As tabelas administrativas continuam com filtros e paginação locais; seus relacionamentos usam as listagens administrativas completas.
 
 ## Proxy e cookies
 

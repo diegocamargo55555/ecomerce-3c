@@ -105,7 +105,16 @@ export const resources = {
     fields: [
       relation("users_id", "Cliente", "users"),
       relation("address_id", "Endereço", "addresses"),
-      status,
+      {
+        ...status,
+        options: [
+          ["pendente", "Aguardando pagamento"],
+          ["pago", "Pago"],
+          ["enviado", "Enviado"],
+          ["entregue", "Entregue"],
+          ["cancelado", "Cancelado"],
+        ],
+      },
       money("subtotal", "Subtotal (R$)"),
       money("shipping_cost", "Frete (R$)"),
       money("total", "Total (R$)"),
@@ -263,35 +272,6 @@ export const currency = (value) =>
     Number(value) || 0,
   );
 
-export function catalogProducts(
-  products,
-  categories,
-  { search, category, sort },
-) {
-  const query = search.trim().toLocaleLowerCase("pt-BR");
-  const names = new Map(categories.map((row) => [String(row.id), row.name]));
-  return products
-    .filter(
-      (product) =>
-        (!category || String(product.category_id) === category) &&
-        (!query ||
-          [
-            product.name,
-            product.description,
-            names.get(String(product.category_id)),
-          ]
-            .join(" ")
-            .toLocaleLowerCase("pt-BR")
-            .includes(query)),
-    )
-    .sort((a, b) => {
-      if (sort === "name")
-        return a.name.localeCompare(b.name, "pt-BR", { numeric: true });
-      if (sort === "price-asc") return Number(a.price) - Number(b.price);
-      if (sort === "price-desc") return Number(b.price) - Number(a.price);
-      return Number(b.id) - Number(a.id);
-    });
-}
 export const date = (value) =>
   value && !Number.isNaN(new Date(value).getTime())
     ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(

@@ -7,6 +7,7 @@ use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Services\ProductService;
+use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
@@ -14,7 +15,21 @@ class ProductController extends Controller
         private ProductService $productService
     ) {}
 
-    public function index()
+    public function index(Request $request)
+    {
+        /*
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['nullable', 'integer', 'min:1'],
+            'sort' => ['sometimes', 'string', 'in:newest,price-asc,price-desc,name'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+        */
+        return ProductResource::collection($this->productService->listCatalog($filters));
+    }
+
+    public function adminIndex()
     {
         return ProductResource::collection($this->productService->listAll());
     }

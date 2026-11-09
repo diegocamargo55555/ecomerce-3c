@@ -191,6 +191,8 @@ function customer(id) {
                       {
                         pago: "Pago",
                         pendente: "Pendente",
+                        enviado: "Enviado",
+                        entregue: "Entregue",
                         cancelado: "Cancelado",
                       }[order.status] || order.status
                     }}</span

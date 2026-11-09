@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { listResource } from "../api/http.js";
-import { catalogProducts, currency } from "../resources.js";
+import { listCatalog, listResource } from "../api/http.js";
+import { currency } from "../resources.js";
 import Icon from "./Icon.vue";
 import Modal from "./Modal.vue";
 
@@ -21,28 +21,17 @@ const search = ref("");
 const category = ref("");
 const sort = ref("newest");
 const page = ref(1);
-const pageSize = 8;
+const pagination = ref({ total: 0, last_page: 1, from: null, to: null });
 const selected = ref(null);
 const failedImages = ref(new Set());
+let loadVersion = 0;
 const categoryNames = computed(
   () => new Map(categories.value.map((row) => [String(row.id), row.name])),
 );
 const error = computed(() =>
   props.section === "categories" ? categoryError.value : productError.value,
 );
-const filtered = computed(() =>
-  catalogProducts(products.value, categories.value, {
-    search: search.value,
-    category: category.value,
-    sort: sort.value,
-  }),
-);
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(filtered.value.length / pageSize)),
-);
-const visible = computed(() =>
-  filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize),
-);
+const totalPages = computed(() => pagination.value.last_page);
 
 function categoryName(id) {
   return (
@@ -54,27 +43,40 @@ function available(product) {
   return product.is_active && Number(product.stock) > 0;
 }
 function chooseCategory(id = "") {
+  page.value = 1;
   category.value = String(id);
   search.value = "";
   emit("navigate", "products");
 }
 function reset() {
+  page.value = 1;
   category.value = "";
   search.value = "";
   sort.value = "newest";
   emit("navigate", "products");
 }
 async function load() {
+  const version = ++loadVersion;
   loading.value = true;
   selected.value = null;
   failedImages.value = new Set();
   const results = await Promise.allSettled([
-    listResource("products"),
+    listCatalog({
+      search: search.value,
+      category: category.value,
+      sort: sort.value,
+      page: page.value,
+    }),
     listResource("categories"),
   ]);
+  if (version !== loadVersion) return;
   const [productResult, categoryResult] = results;
   products.value =
-    productResult.status === "fulfilled" ? productResult.value : [];
+    productResult.status === "fulfilled" ? productResult.value.data : [];
+  pagination.value =
+    productResult.status === "fulfilled"
+      ? productResult.value.meta
+      : { total: 0, last_page: 1, from: null, to: null };
   categories.value =
     categoryResult.status === "fulfilled" ? categoryResult.value : [];
   productError.value =
@@ -86,9 +88,7 @@ async function load() {
 watch([search, category, sort], () => {
   page.value = 1;
 });
-watch(totalPages, (value) => {
-  page.value = Math.min(page.value, value);
-});
+watch([search, category, sort, page], load);
 watch(
   () => props.section,
   () => {
@@ -209,6 +209,7 @@ onMounted(load);
       ref="content"
       class="store-container catalog-main"
       tabindex="-1"
+      :aria-busy="loading"
     >
       <p v-if="notice" class="notice store-notice" role="status">
         {{ notice }}
@@ -237,7 +238,7 @@ onMounted(load);
       </header>
 
       <div
-        v-if="loading"
+        v-if="loading && !products.length"
         class="catalog-grid"
         aria-busy="true"
         role="status"
@@ -297,9 +298,9 @@ onMounted(load);
           <div class="catalog-results" role="status" aria-live="polite">
             <h2>{{ categoryNames.get(category) || "Todos os produtos" }}</h2>
             <span
-              >{{ filtered.length }}
+              >{{ pagination.total }}
               {{
-                filtered.length === 1
+                pagination.total === 1
                   ? "produto encontrado"
                   : "produtos encontrados"
               }}</span
@@ -315,7 +316,7 @@ onMounted(load);
             </select>
           </label>
         </div>
-        <div v-if="!visible.length" class="panel empty-state">
+        <div v-if="!products.length" class="panel empty-state">
           <span class="empty-icon"
             ><Icon :name="search || category ? 'search' : 'box'" :size="28"
           /></span>
@@ -343,7 +344,7 @@ onMounted(load);
         </div>
         <div v-else class="catalog-grid">
           <article
-            v-for="product in visible"
+            v-for="product in products"
             :key="product.id"
             class="product-card"
           >
@@ -396,21 +397,19 @@ onMounted(load);
           </article>
         </div>
         <nav
-          v-if="filtered.length"
+          v-if="pagination.total && products.length"
           class="catalog-pagination"
           aria-label="Páginas de produtos"
         >
           <span
-            >Mostrando {{ (page - 1) * pageSize + 1 }}–{{
-              Math.min(page * pageSize, filtered.length)
-            }}
-            de {{ filtered.length }}</span
+            >Mostrando {{ pagination.from }}–{{ pagination.to }}
+            de {{ pagination.total }}</span
           >
           <div class="pagination">
             <button
               class="icon-button bordered"
               aria-label="Página anterior"
-              :disabled="page === 1"
+              :disabled="loading || page === 1"
               @click="page--"
             >
               <Icon name="left" :size="17" /></button
@@ -418,7 +417,7 @@ onMounted(load);
             ><button
               class="icon-button bordered"
               aria-label="Próxima página"
-              :disabled="page === totalPages"
+              :disabled="loading || page === totalPages"
               @click="page++"
             >
               <Icon name="right" :size="17" />

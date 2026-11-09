@@ -9,9 +9,9 @@
 
 ## Dados de demonstração
 
-Os seeders criam uma loja de Warhammer 40.000 com quatro categorias (Imperium, Caos, Xenos e Pintura e acessórios), oito produtos e exemplos vinculados de clientes, carrinhos, pedidos e pagamentos. Preços e estoques são ilustrativos.
+Os seeders criam uma loja de Warhammer 40.000 com quatro categorias (Imperium, Caos, Xenos e Pintura e acessórios), 30 produtos (oito originais e 22 kits de demonstração), três clientes, um admin, carrinhos de visitante e de clientes populados e cinco pedidos com itens e pagamentos. Os pedidos cobrem aguardando pagamento (`pendente`), pago, enviado, entregue e cancelado. Preços e estoques são ilustrativos.
 
-As oito fotos ficam em `public/images/products/`, com as fontes registradas no [README das imagens](public/images/products/README.md). O seeder preenche `image_url` com URLs dos arquivos locais, geradas pelo Laravel a partir de `APP_URL` (ou `ASSET_URL`, quando configurada). `APP_URL` deve apontar para o endereço público do backend que serve essas imagens; no Compose atual, o padrão `http://localhost` usa o proxy na porta 80.
+Os kits reutilizam as fotos de uma unidade, conforme suas descrições. As oito fotos ficam em `public/images/products/`, com as fontes registradas no [README das imagens](public/images/products/README.md). O seeder preenche `image_url` com URLs dos arquivos locais, geradas pelo Laravel a partir de `APP_URL` (ou `ASSET_URL`, quando configurada). `APP_URL` deve apontar para o endereço público do backend que serve essas imagens; no Compose atual, o padrão `http://localhost` usa o proxy na porta 80.
 
 Depois de aplicar as migrações em uma base vazia, execute na raiz do projeto:
 
@@ -19,7 +19,7 @@ Depois de aplicar as migrações em uma base vazia, execute na raiz do projeto:
 docker compose exec php php artisan db:seed
 ```
 
-Os seeders não substituem os registros de uma base já preenchida. Para testar os dados e os totais sem alterar a loja, execute `docker compose exec php php artisan test --filter=DatabaseSeederTest`; o teste usa SQLite em memória.
+Os seeders podem ser repetidos: criam exemplos ausentes e preservam dados existentes, inclusive senhas, preços, estoques e exclusões lógicas. Aplique as migrations antes da carga. Os cinco status de pedidos estão definidos na migration original de `orders`; bancos antigos precisam ter a coluna compatível antes da carga, pois editar essa migration não atualiza tabelas existentes. A carga completa é transacional. Para testar os dados e os totais sem alterar a loja, execute `docker compose exec php php artisan test --filter=DatabaseSeederTest`; o teste usa SQLite em memória.
 
 ### Fotos em produtos já cadastrados
 
@@ -29,7 +29,7 @@ A migration `2026_11_08_230858_fill_missing_product_images` preenche as fotos au
 docker compose exec php php artisan migrate --path=database/migrations/2026_11_08_230858_fill_missing_product_images.php
 ```
 
-O rollback mantém as fotos para não remover imagens válidas. O teste `ProductImagesMigrationTest` verifica o preenchimento, a preservação de dados e a repetição segura da migration em SQLite em memória.
+O rollback mantém as fotos para não remover imagens válidas. O teste `DatabaseSeederTest` verifica os cenários de demonstração, a existência dos arquivos de imagens, os totais de pedidos e a repetição segura dos seeders em SQLite em memória.
 
 ## About Laravel
 

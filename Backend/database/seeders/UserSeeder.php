@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
@@ -20,7 +20,7 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $user) {
-            DB::table('users')->insert([
+            User::firstOrCreate(['email' => $user['email']], [
                 'name' => $user['name'],
                 'email' => $user['email'],
                 'email_verified_at' => $now,

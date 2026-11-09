@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Address;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -19,7 +20,7 @@ class AddressSeeder extends Seeder
         ];
 
         foreach ($addresses as $address) {
-            DB::table('addresses')->insert([
+            Address::firstOrCreate(['users_id' => $userIds[$address['user']]], [
                 'users_id' => $userIds[$address['user']],
                 'recipient_name' => $address['recipient_name'],
                 'zip_code' => $address['zip_code'],

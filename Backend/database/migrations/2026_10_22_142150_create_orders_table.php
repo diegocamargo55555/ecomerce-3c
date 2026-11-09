@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId("address_id")->constrained();
             $table->foreignId("users_id")->constrained();
-            $table->enum('status', ['pendente', 'pago', 'cancelado'])->default('pendente');
+            $table->enum('status', ['pendente', 'pago', 'enviado', 'entregue', 'cancelado'])->default('pendente');
             $table->decimal('subtotal',10, 2);
             $table->decimal('total',10, 2);
             $table->decimal('shipping_cost',10, 2);
