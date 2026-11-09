@@ -22,7 +22,13 @@ export default defineConfig(({ mode }) => {
   );
   return {
     plugins: [vue()],
-    server: { host: "127.0.0.1", port: 5173, strictPort: true, proxy },
+    server: {
+      host: "127.0.0.1",
+      port: 5173,
+      strictPort: true,
+      allowedHosts: ["ecommerce.diego-portifolio.online"],
+      proxy,
+    },
     preview: { host: "127.0.0.1", port: 5174, strictPort: true, proxy },
     resolve: {
       alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
