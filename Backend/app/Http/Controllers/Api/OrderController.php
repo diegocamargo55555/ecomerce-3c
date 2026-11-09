@@ -42,4 +42,11 @@ class OrderController extends Controller
     {
         return new OrderResource($this->orderService->findForUser($id, $request->user()));
     }
+
+    public function updateStatus(Request $request, int $id)
+    {
+        $data = $request->validate(['status' => ['required', 'string', 'in:pendente,pago,enviado,entregue,cancelado']]);
+
+        return new OrderResource($this->orderService->updateStatus($id, $data['status']));
+    }
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { createAddress, createOrder, getAddresses, getCheckout, getOrder, payOrder, getMyOrders, cancelOrder } from "../src/api/http.js";
+import { createAddress, createOrder, getAddresses, getCheckout, getOrder, payOrder, getMyOrders, cancelOrder, updateOrderStatus } from "../src/api/http.js";
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => { globalThis.document = { cookie: "XSRF-TOKEN=token" }; });
@@ -60,4 +60,21 @@ test("history and cancellation use the authenticated account and no client stock
   assert.deepEqual(calls, [["/api/my/orders", "GET", undefined], ["/api/orders/9/cancel", "POST", undefined]]);
   globalThis.fetch = async () => Response.json({}, { status: 409 });
   await assert.rejects(cancelOrder(9), error => error.status === 409);
+});
+
+test("admin status updates send only the target status with cookies and CSRF", async () => {
+  const calls = [];
+  globalThis.fetch = async (path, options) => {
+    assert.equal(options.credentials, "include");
+    assert.equal(options.headers["X-XSRF-TOKEN"], "token");
+    calls.push([path, options.method, JSON.parse(options.body)]);
+    return Response.json({ data: { id: 9, status: JSON.parse(options.body).status } });
+  };
+  assert.equal((await updateOrderStatus(9, "enviado")).status, "enviado");
+  assert.equal((await updateOrderStatus(9, "entregue")).status, "entregue");
+  assert.deepEqual(calls, [["/api/admin/orders/9/status", "PATCH", { status: "enviado" }], ["/api/admin/orders/9/status", "PATCH", { status: "entregue" }]]);
+  globalThis.fetch = async () => Response.json({}, { status: 409 });
+  await assert.rejects(updateOrderStatus(9, "enviado"), error => error.status === 409);
+  globalThis.fetch = async () => Response.json({}, { status: 403 });
+  await assert.rejects(updateOrderStatus(9, "entregue"), error => error.status === 403);
 });

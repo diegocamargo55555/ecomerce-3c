@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
-import { getOrder, payOrder, cancelOrder } from "../api/http.js";
+import { computed, nextTick, onMounted, ref } from "vue";
+import { getOrder, payOrder, cancelOrder, updateOrderStatus } from "../api/http.js";
 import { currency, date, resources } from "../resources.js";
 import Icon from "./Icon.vue";
 import Modal from "./Modal.vue";
@@ -12,9 +12,12 @@ const error = ref("");
 const actionError = ref("");
 const paying = ref(false);
 const cancelling = ref(false);
+const updatingStatus = ref(false);
 const confirmingCancel = ref(false);
 const notice = ref("");
-const busy = computed(() => paying.value || cancelling.value);
+const noticeElement = ref(null);
+const busy = computed(() => paying.value || cancelling.value || updatingStatus.value);
+const nextStatus = computed(() => props.user?.role === "admin" ? ({ pago: "enviado", enviado: "entregue" }[order.value?.status] ?? null) : null);
 const canCancel = computed(() => order.value?.status === "pendente" && (props.user?.id === order.value.users_id || props.user?.role === "admin"));
 const statusNames = Object.fromEntries(resources.orders.fields.find(field => field.key === "status").options);
 const payment = computed(() => order.value?.payments.find(item => item.status === "pago"));
@@ -61,6 +64,23 @@ async function cancel() {
     cancelling.value = false;
   }
 }
+async function advanceStatus() {
+  if (busy.value || confirmingCancel.value || !nextStatus.value) return;
+  updatingStatus.value = true;
+  actionError.value = "";
+  notice.value = "";
+  try {
+    order.value = await updateOrderStatus(props.orderId, nextStatus.value);
+    notice.value = `Status atualizado: ${statusNames[order.value.status]}.`;
+    await nextTick();
+    noticeElement.value?.focus({ preventScroll: true });
+  } catch (failure) {
+    actionError.value = failure.message;
+    if (failure.status === 409 || failure.status === 404) await load();
+  } finally {
+    updatingStatus.value = false;
+  }
+}
 onMounted(load);
 </script>
 
@@ -69,7 +89,7 @@ onMounted(load);
     <a href="#products" class="text-button order-back"><Icon name="left" :size="16" /> Voltar à loja</a>
     <a href="#my-orders" class="text-button order-back">Meus pedidos</a>
     <a v-if="user?.role === 'admin'" href="#orders" class="text-button order-back">Todos os pedidos</a>
-    <p v-if="notice" class="notice" role="status">{{ notice }}</p>
+    <p v-if="notice" ref="noticeElement" class="notice" role="status" tabindex="-1">{{ notice }}</p>
     <div v-if="loading" class="panel empty-state" role="status"><span class="spinner" /> Carregando pedido…</div>
     <div v-else-if="error" class="panel empty-state" role="alert">
       <Icon name="alert" :size="32" /><h1>Pedido indisponível</h1><p>{{ error }}</p>
@@ -110,6 +130,12 @@ onMounted(load);
             <span v-if="paying" class="spinner" />{{ paying ? "Confirmando…" : "Confirmar pagamento simulado" }}
           </button>
           <button v-if="canCancel" type="button" class="button danger" :disabled="busy" @click="actionError = ''; confirmingCancel = true">Cancelar pedido</button>
+          <template v-if="nextStatus">
+            <h3>Gestão do pedido</h3>
+            <button type="button" class="button primary" :disabled="busy" @click="advanceStatus">
+              <span v-if="updatingStatus" class="spinner" />{{ updatingStatus ? "Atualizando…" : nextStatus === "enviado" ? "Marcar como enviado" : "Marcar como entregue" }}
+            </button>
+          </template>
           <p v-if="order.status === 'cancelado'" class="muted">Este pedido foi cancelado e não pode ser pago.</p>
         </aside>
       </div>

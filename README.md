@@ -64,6 +64,7 @@ O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, 
 | `PATCH/DELETE /api/my/addresses/:id` | Somente o proprietário, inclusive para admins |
 | `GET /api/my/orders` | Pedidos da própria conta, inclusive para admins |
 | `POST /api/orders/:id/cancel` | Dono ou admin; somente pedidos pendentes |
+| `PATCH /api/admin/orders/:id/status` | Somente admin; pago → enviado → entregue |
 
 Sem sessão, rotas protegidas retornam 401; clientes recebem 403 nas operações administrativas, inclusive acessando a API diretamente. A Gate `admin` protege as rotas no backend. Cadastro e criação de usuários produzem clientes; enviar `role` no cadastro, criação ou edição de usuários retorna 422, inclusive valores vazios. O papel é retornado em `UserResource` e não é mass assignable. Não há endpoint de promoção de papel.
 
@@ -94,7 +95,7 @@ docker compose exec php php artisan migrate
 docker compose exec php php artisan db:seed
 ```
 
-Os cinco status estão definidos diretamente na migration que cria `orders`. O checkout cria pedidos pendentes e a confirmação de pagamento os torna pagos; envio e entrega ainda estão pendentes. Alterar a migration original não atualiza tabelas já criadas. Instalações novas já aceitam os cinco status.
+Os cinco status estão definidos diretamente na migration que cria `orders`. O checkout cria pedidos pendentes e a confirmação de pagamento os torna pagos; o admin pode avançar de pago para enviado e de enviado para entregue. Alterar a migration original não atualiza tabelas já criadas. Instalações novas já aceitam os cinco status.
 
 ## Página pública do produto
 
@@ -129,7 +130,7 @@ A criação usa uma transação com bloqueio do carrinho, dos itens e dos produt
 
 A página `/#order/ID` mostra o pedido, seus itens congelados, endereço, frete e total. O dono encontra a ação **Confirmar pagamento simulado**. `POST /api/orders/{id}/pay` não recebe valor, dados de cartão ou gateway; em uma transação, usa o total gravado no pedido, registra a data/hora no pagamento e altera o pedido para pago. Uma segunda tentativa ou pedido fora de pendente retorna 409; outro usuário, inclusive admin de outro pedido, recebe 403. O pagamento não baixa estoque novamente. O dono e admins podem consultar o detalhe por `GET /api/orders/{id}`.
 
-Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. As antigas escritas manuais desses registros foram desabilitadas na API e na interface para preservar estoque, preços e pagamentos; envio e entrega permanecem pendentes; o cancelamento usa a ação própria descrita abaixo. A unicidade de `payments.order_id` está definida na migration original de pagamentos; instalações novas já recebem o índice. Bases antigas sem ele precisam desse ajuste, pois editar uma migration já executada não altera o schema.
+Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. As antigas escritas manuais desses registros foram desabilitadas na API e na interface para preservar estoque, preços e pagamentos; envio, entrega e cancelamento usam ações próprias descritas abaixo. A unicidade de `payments.order_id` está definida na migration original de pagamentos; instalações novas já recebem o índice. Bases antigas sem ele precisam desse ajuste, pois editar uma migration já executada não altera o schema.
 
 Os testes de backend também verificam autorização, valores enviados pelo cliente, limites monetários, preços congelados, repetição do checkout e do pagamento e rollback em falhas depois da baixa de estoque ou da confirmação do pagamento. A verificação HTTP em banco MySQL temporário cobre cookies reais e concorrência entre sessões, sem modificar os dados de compras do banco principal.
 
@@ -143,6 +144,14 @@ A transação bloqueia pedido, pagamento, itens e produtos. Pagamento e cancelam
 
 Verifique com duas contas que o histórico é isolado; crie um pedido pendente, cancele e confira o estoque e o pagamento. Repita a chamada e tente pagar o pedido cancelado: ambas retornam 409. Os testes automatizados cobrem autorização, produtos excluídos, repetição e rollback. A verificação HTTP em MySQL temporário também confirmou seis disputas entre sessões (cancelamento duplo e pagamento contra cancelamento), com uma única ação vencedora e estoque consistente. SQLite não reproduz esses bloqueios.
 
+## Gestão de status pelo administrador
+
+No painel **Pedidos**, use os filtros por status e abra o número do pedido. No detalhe, admins encontram **Marcar como enviado** em pedidos pagos e **Marcar como entregue** em pedidos enviados. O status é atualizado na tela e fica disponível no histórico do cliente; ao voltar a **Todos os pedidos**, a listagem consulta os dados novamente.
+
+`PATCH /api/admin/orders/{id}/status` recebe `{ "status": "enviado" }` ou `{ "status": "entregue" }` e retorna o pedido atualizado com itens, endereço e pagamento em `data`. Somente as transições `pago → enviado → entregue` são aceitas. Status conhecidos que tentem repetir, pular ou retroceder uma etapa retornam 409; status ausente ou desconhecido retorna 422. Sem sessão retorna 401, clientes recebem 403 mesmo sendo donos do pedido, e pedido inexistente retorna 404 para admins. Pagamento e cancelamento continuam em seus endpoints próprios.
+
+A operação usa transação e bloqueio do pedido, compartilhando a proteção contra concorrência com pagamento e cancelamento. A mudança não modifica estoque, itens, endereço, valores ou registro de pagamento. O botão fica bloqueado durante a chamada; em 409, o detalhe é recarregado para refletir a alteração feita em outra sessão. Os testes cobrem autorização, transições inválidas e preservação dos dados; a verificação em MySQL temporário confirmou que duas sessões administrativas concorrentes processam cada etapa somente uma vez. Nenhuma migration adicional é necessária.
+
 ## Perfil e endereços da conta
 
 Abra **http://localhost/#profile** pelo link “Perfil” ou pelo ícone da conta. Visitantes vão ao login e retornam ao perfil após autenticar. `GET /api/me` consulta a conta e `PATCH /api/me` permite editar nome e e-mail, sempre da sessão atual. O e-mail deve ser único; alterar o e-mail exige `current_password` com a senha atual. A senha não é alterada nem retornada. Campos `role`, `id` e `password` são rejeitados com 422. Alterar o e-mail limpa a marca anterior de verificação, preserva a sessão e atualiza o cabeçalho.
@@ -155,7 +164,7 @@ Os testes verificam isolamento entre contas, validação, senha atual na altera�
 
 ## Limites desta etapa
 
-Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. Transições de envio/entrega permanecem pendentes. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
+Clientes podem navegar no catálogo, abrir produtos por URL, adicionar itens ao carrinho e entrar/sair da conta. A listagem pública oculta produtos inativos e mantém produtos ativos sem estoque sinalizados como indisponíveis.
 
 Os CRUDs administrativos de catálogo, usuários, endereços e carrinhos permanecem disponíveis. Pedidos, seus itens e pagamentos são gerados pelo fluxo de compra e consultados pelo painel. Não use as credenciais de demonstração em produção.
 

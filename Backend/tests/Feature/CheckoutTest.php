@@ -393,4 +393,74 @@ class CheckoutTest extends TestCase
         $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
     }
 
+    public function test_order_status_changes_require_admin_even_for_the_owner(): void
+    {
+        $this->patchJson('/api/admin/orders/1/status', ['status' => 'enviado'])->assertUnauthorized();
+        $this->fillCart(1);
+        $id = $this->checkout();
+        $this->patchJson("/api/admin/orders/{$id}/status", ['status' => 'enviado'])->assertForbidden();
+        $this->actingAs(User::factory()->create())->patchJson("/api/admin/orders/{$id}/status", ['status' => 'enviado'])->assertForbidden();
+        $this->assertDatabaseHas('orders', ['id' => $id, 'status' => 'pendente']);
+    }
+
+    public function test_admin_can_ship_then_deliver_without_modifying_stock_payment_or_order_values(): void
+    {
+        $this->fillCart(1);
+        $id = $this->checkout();
+        $this->postJson("/api/orders/{$id}/pay")->assertOk();
+        $payment = Payment::first()->getAttributes();
+        $items = Order::find($id)->items()->get()->toArray();
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        foreach (['enviado', 'entregue'] as $status) {
+            $this->patchJson("/api/admin/orders/{$id}/status", [
+                'status' => $status, 'users_id' => 999, 'address_id' => 999,
+                'subtotal' => '0.01', 'total' => '0.01', 'shipping_cost' => '0.00', 'paid_at' => null,
+            ])->assertOk()->assertJsonPath('data.status', $status)
+                ->assertJsonPath('data.users_id', $this->user->id)->assertJsonPath('data.address.id', $this->address->id)
+                ->assertJsonPath('data.total', '20.10')->assertJsonPath('data.subtotal', '0.10')
+                ->assertJsonPath('data.shipping_cost', '20.00')->assertJsonPath('data.items.0.product_name', 'Marine')
+                ->assertJsonPath('data.payments.0.status', 'pago');
+            $this->patchJson("/api/admin/orders/{$id}/status", ['status' => $status])->assertConflict();
+        }
+        $this->getJson('/api/orders')->assertOk()->assertJsonPath('data.0.status', 'entregue');
+        $this->assertSame(4, $this->product->fresh()->stock);
+        $this->assertSame($payment, Payment::first()->getAttributes());
+        $this->assertSame($items, Order::find($id)->items()->get()->toArray());
+        $this->actingAs($this->user)->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.status', 'entregue');
+        $this->getJson('/api/my/orders')->assertOk()->assertJsonPath('data.0.status', 'entregue');
+        $this->postJson("/api/orders/{$id}/cancel")->assertConflict();
+        $this->postJson("/api/orders/{$id}/pay")->assertConflict();
+    }
+
+    public function test_admin_status_endpoint_rejects_all_other_transitions(): void
+    {
+        $this->fillCart(1);
+        $id = $this->checkout();
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $statuses = ['pendente', 'pago', 'enviado', 'entregue', 'cancelado'];
+        foreach ($statuses as $from) {
+            Order::find($id)->update(['status' => $from]);
+            foreach ($statuses as $to) {
+                if (($from === 'pago' && $to === 'enviado') || ($from === 'enviado' && $to === 'entregue')) continue;
+                $this->patchJson("/api/admin/orders/{$id}/status", ['status' => $to])->assertConflict();
+                $this->assertDatabaseHas('orders', ['id' => $id, 'status' => $from]);
+            }
+        }
+        $this->assertSame(4, $this->product->fresh()->stock);
+        $this->assertDatabaseHas('payments', ['order_id' => $id, 'status' => 'pendente', 'paid_at' => null]);
+    }
+
+    public function test_admin_status_endpoint_validates_target_and_missing_order(): void
+    {
+        $this->fillCart(1);
+        $id = $this->checkout();
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->patchJson("/api/admin/orders/{$id}/status", [])->assertUnprocessable()->assertJsonValidationErrors('status');
+        foreach ([null, '', 'invalido', [], 123] as $invalid) {
+            $this->patchJson("/api/admin/orders/{$id}/status", ['status' => $invalid])->assertUnprocessable()->assertJsonValidationErrors('status');
+        }
+        $this->patchJson('/api/admin/orders/999999/status', ['status' => 'enviado'])->assertNotFound();
+        $this->assertDatabaseHas('orders', ['id' => $id, 'status' => 'pendente']);
+    }
+
 }

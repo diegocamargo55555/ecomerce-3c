@@ -118,6 +118,18 @@ class OrderService
         }, 3);
     }
 
+    public function updateStatus(int $id, string $status): Order
+    {
+        return DB::transaction(function () use ($id, $status) {
+            $order = Order::lockForUpdate()->findOrFail($id);
+            $previousStatus = ['enviado' => 'pago', 'entregue' => 'enviado'];
+            abort_unless($order->status === ($previousStatus[$status] ?? null), 409, 'Transição de status inválida para este pedido.');
+            $order->update(['status' => $status]);
+
+            return $order->load('items', 'address', 'payments');
+        }, 3);
+    }
+
     public function listAll(): Collection
     {
         return Order::all();

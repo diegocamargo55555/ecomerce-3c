@@ -164,6 +164,12 @@ export async function cancelOrder(id) {
   return resourceData(await api(`/api/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST' }));
 }
 
+export async function updateOrderStatus(id, status) {
+  return resourceData(await api(`/api/admin/orders/${encodeURIComponent(id)}/status`, {
+    method: "PATCH", body: { status },
+  }));
+}
+
 export async function listResource(key) {
   const path = key === "products" ? "admin/products" : key;
   const data = resourceData(await api(`/api/${path}`));

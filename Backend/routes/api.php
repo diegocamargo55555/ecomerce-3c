@@ -46,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('can:admin')->group(function () {
         Route::get('admin/products', [ProductController::class, 'adminIndex']);
+        Route::patch('admin/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id');
 
         Route::apiResource('users', UserController::class)
             ->whereNumber('user');
