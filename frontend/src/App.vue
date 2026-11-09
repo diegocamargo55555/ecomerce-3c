@@ -13,13 +13,14 @@ import { resources, navigation, initials } from "./resources.js";
 import AuthView from "./components/AuthView.vue";
 import OverviewView from "./components/OverviewView.vue";
 import ResourceView from "./components/ResourceView.vue";
+import CatalogView from "./components/CatalogView.vue";
 import Icon from "./components/Icon.vue";
 
 const user = ref(null);
 const starting = ref(true);
 const startError = ref("");
 const notice = ref("");
-const page = ref("overview");
+const page = ref("products");
 const menuOpen = ref(false);
 const compactLayout = window.matchMedia("(max-width: 760px)");
 const mobile = ref(compactLayout.matches);
@@ -27,14 +28,33 @@ const originalOverflow = document.body.style.overflow;
 const signingOut = ref(false);
 const toast = ref(null);
 let toastTimer;
-const title = computed(() => resources[page.value]?.title || "Visão geral");
-const activeKey = computed(() => resources[page.value]?.parent || page.value);
+const resourceKey = computed(() => page.value.replace(/^manage-/, ""));
+const title = computed(
+  () => resources[resourceKey.value]?.title || "Visão geral",
+);
+const activeKey = computed(
+  () => resources[resourceKey.value]?.parent || resourceKey.value,
+);
+const publicPage = computed(() =>
+  ["products", "categories"].includes(page.value),
+);
+
+function managementPage(key) {
+  return ["products", "categories"].includes(key) ? `manage-${key}` : key;
+}
+function navigateManagement(key) {
+  navigate(managementPage(key));
+}
 
 function syncRoute() {
   const key = window.location.hash.slice(1);
-  page.value = Object.hasOwn(resources, key) ? key : "overview";
+  page.value =
+    Object.hasOwn(resources, key) ||
+    ["overview", "manage-products", "manage-categories"].includes(key)
+      ? key
+      : "products";
   menuOpen.value = false;
-  document.title = `${resources[page.value]?.title || "Visão geral"} · 3C Commerce`;
+  document.title = `${title.value} · 3C Commerce`;
 }
 function navigate(key) {
   window.location.hash = key;
@@ -54,6 +74,7 @@ function endSession(
   notice.value = message;
   menuOpen.value = false;
   toast.value = null;
+  navigate("products");
 }
 function expired() {
   endSession();
@@ -87,7 +108,7 @@ async function start() {
 function authenticated(value) {
   user.value = value;
   notice.value = "";
-  navigate("overview");
+  navigate("products");
 }
 async function signOut() {
   signingOut.value = true;
@@ -119,7 +140,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="starting || startError" class="startup-screen">
+  <div v-if="!publicPage && (starting || startError)" class="startup-screen">
     <span class="brand-mark"><Icon name="bag" :size="26" /></span
     ><template v-if="starting"
       ><span class="spinner" />
@@ -132,7 +153,20 @@ onBeforeUnmount(() => {
       </button></template
     >
   </div>
-  <AuthView v-else-if="!user" :notice="notice" @authenticated="authenticated" />
+  <AuthView
+    v-else-if="!user && !publicPage"
+    :notice="notice"
+    @authenticated="authenticated"
+  />
+  <CatalogView
+    v-else-if="publicPage"
+    :section="page"
+    :user="user"
+    :notice="notice"
+    :signing-out="signingOut"
+    @navigate="navigate"
+    @sign-out="signOut"
+  />
   <div v-else class="app-layout">
     <a
       class="skip-link"
@@ -152,7 +186,7 @@ onBeforeUnmount(() => {
       :inert="mobile && !menuOpen"
       aria-label="Navegação principal"
     >
-      <a href="#overview" class="brand" @click.prevent="navigate('overview')"
+      <a href="#products" class="brand" @click.prevent="navigate('products')"
         ><span class="brand-mark"><Icon name="bag" :size="23" /></span
         ><span
           >3c<span class="brand-light">commerce</span
@@ -176,7 +210,7 @@ onBeforeUnmount(() => {
           ><a
             v-for="key in group.items"
             :key="key"
-            :href="`#${key}`"
+            :href="`#${managementPage(key)}`"
             :class="['nav-item', { active: activeKey === key }]"
             :aria-current="activeKey === key ? 'page' : undefined"
             @click="menuOpen = false"
@@ -193,7 +227,7 @@ onBeforeUnmount(() => {
             >Pequenos detalhes.<br /><strong>Uma loja melhor.</strong></span
           >
         </div>
-        <div class="user-card">
+        <div v-if="user" class="user-card">
           <span class="avatar">{{ initials(user.name) }}</span>
           <div>
             <strong>{{ user.name }}</strong
@@ -230,8 +264,11 @@ onBeforeUnmount(() => {
           ><Icon name="right" :size="13" /><strong>{{ title }}</strong>
         </div>
         <div class="topbar-right">
-          <span class="workspace-badge"><i /> Espaço de gestão</span
-          ><span class="avatar small" :title="user.name">{{
+          <a href="#products" class="text-button"
+            ><Icon name="bag" :size="16" /> Ver loja</a
+          >
+          <span class="workspace-badge"><i /> Gestão</span
+          ><span v-if="user" class="avatar small" :title="user.name">{{
             initials(user.name)
           }}</span>
         </div>
@@ -240,13 +277,13 @@ onBeforeUnmount(() => {
         <OverviewView
           v-if="page === 'overview'"
           :user="user"
-          @navigate="navigate"
+          @navigate="navigateManagement"
         /><ResourceView
           v-else
-          :resource-key="page"
+          :resource-key="resourceKey"
           :user="user"
           @notify="notify"
-          @navigate="navigate"
+          @navigate="navigateManagement"
           @user-updated="user = $event"
           @self-deleted="endSession('Sua conta foi excluída.')"
         />

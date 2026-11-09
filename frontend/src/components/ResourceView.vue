@@ -293,6 +293,7 @@ function exportCsv() {
         <p class="muted">{{ config.description }}</p>
       </div>
       <button
+        v-if="user"
         class="button primary"
         :disabled="loading || !!error"
         @click="openForm()"
@@ -422,14 +423,18 @@ function exportCsv() {
           {{
             search || filter !== "all"
               ? "Nenhum resultado por aqui"
-              : `Seu primeiro registro começa aqui`
+              : user
+                ? "Seu primeiro registro começa aqui"
+                : "Nenhum registro disponível"
           }}
         </h2>
         <p>
           {{
             search || filter !== "all"
               ? "Tente outra busca ou ajuste os filtros."
-              : `Adicione um novo registro para começar a organizar ${config.title.toLowerCase()}.`
+              : user
+                ? `Adicione um novo registro para começar a organizar ${config.title.toLowerCase()}.`
+                : "Volte em breve para conferir as novidades."
           }}
         </p>
         <button
@@ -441,7 +446,7 @@ function exportCsv() {
           "
         >
           Limpar filtros</button
-        ><button v-else class="button secondary" @click="openForm()">
+        ><button v-else-if="user" class="button secondary" @click="openForm()">
           <Icon name="plus" :size="16" /> Adicionar {{ config.singular }}
         </button>
       </div>
@@ -461,7 +466,7 @@ function exportCsv() {
               >
                 {{ column.label }}
               </th>
-              <th scope="col" class="actions-heading">Ações</th>
+              <th v-if="user" scope="col" class="actions-heading">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -519,7 +524,7 @@ function exportCsv() {
                   >{{ cell(row, column) }}</span
                 >
               </td>
-              <td class="row-actions">
+              <td v-if="user" class="row-actions">
                 <button
                   class="icon-button"
                   :aria-label="`Editar ${config.singular} ${row.name || row.id}`"
@@ -576,7 +581,7 @@ function exportCsv() {
     </div>
     <p class="page-footnote">Uma loja organizada abre espaço para crescer.</p>
     <Modal
-      v-if="modalOpen"
+      v-if="modalOpen && user"
       :title="`${editing ? 'Editar' : ['categories', 'users'].includes(resourceKey) ? 'Nova' : 'Novo'} ${config.singular}`"
       :busy="busy"
       @close="closeForm"
@@ -724,7 +729,7 @@ function exportCsv() {
       </form></Modal
     >
     <Modal
-      v-if="deleting"
+      v-if="deleting && user"
       title="Excluir registro?"
       :busy="busy"
       small

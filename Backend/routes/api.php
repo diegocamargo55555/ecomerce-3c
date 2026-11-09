@@ -18,6 +18,9 @@ Route::post('register', [AuthController::class, 'register'])
 Route::post('login', [AuthController::class, 'login'])
     ->middleware('throttle:6,1');
 
+Route::apiResource('products', ProductController::class)->only(['index']);
+Route::apiResource('categories', CategoryController::class)->only(['index']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('me', [AuthController::class, 'me']);
     Route::post('logout', [AuthController::class, 'logout']);
@@ -35,9 +38,11 @@ Route::middleware('auth:sanctum')->group(function () {
     ->whereNumber('payment');
 
     Route::apiResource('categories', CategoryController::class)
+    ->except(['index'])
     ->whereNumber('category');
 
     Route::apiResource('products', ProductController::class)
+    ->except(['index'])
     ->whereNumber('product');
 
     Route::apiResource('carts', CartController::class)

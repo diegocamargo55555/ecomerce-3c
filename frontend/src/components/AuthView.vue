@@ -93,7 +93,7 @@ async function submit() {
           </div>
         </div>
       </div>
-      <p class="auth-footnote">Tudo no seu lugar. Do seu jeito.</p>
+      <a href="#products" class="auth-footnote">Voltar para a loja →</a>
     </section>
     <section class="auth-main">
       <div class="auth-form-wrap">

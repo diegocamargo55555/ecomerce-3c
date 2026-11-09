@@ -1,6 +1,6 @@
 # 3C Commerce
 
-Interface de gestão em Vue 3 para a API Laravel existente. As alterações deste frontend ficam nesta pasta.
+Interface em Vue 3 para a API Laravel existente, com vitrine minimalista em azul e laranja. A tela inicial exibe produtos sem exigir login. Produtos e categorias podem ser consultados por visitantes; as funções de gestão exigem autenticação.
 
 ## Executar
 
@@ -37,7 +37,7 @@ npm install
 npm run dev
 ```
 
-Abra **http://127.0.0.1:5173/**. Entre com uma conta existente ou use **Criar conta**.
+Abra **http://127.0.0.1:5173/** para consultar os produtos sem login. Para gerenciar a loja, use o acesso à conta no cabeçalho, com uma conta existente ou **Criar conta**.
 
 ```sh
 npm test         # testes do cliente HTTP, CSRF e erros
@@ -47,6 +47,8 @@ npm run preview # serve o build em http://127.0.0.1:5174/
 
 ## Funcionalidades
 
+- Vitrine de produtos em cards, com busca por nome, descrição e categoria, filtro por categoria, ordenação por preço/nome/recência e paginação local com oito produtos.
+- Detalhes de produtos em diálogo, usando os dados já recebidos da listagem. Imagens ausentes ou inválidas exibem um placeholder; produtos indisponíveis permanecem sinalizados no catálogo.
 - Login, cadastro, restauração e encerramento da sessão com Sanctum.
 - Visão geral com dados reais de pedidos, produtos, estoque e pagamentos.
 - Listagem, criação, edição e exclusão de produtos, categorias, pessoas, endereços, carrinhos, itens dos carrinhos, pedidos, itens dos pedidos e pagamentos.
@@ -65,6 +67,10 @@ O cliente usa exclusivamente as rotas existentes:
 | Recursos     | `/api/products`, `/api/categories`, `/api/users`, `/api/addresses`, `/api/carts`, `/api/cart-items`, `/api/orders`, `/api/order-items`, `/api/payments` |
 
 Os recursos usam `GET` para listagem, `POST` para criação e `PATCH` / `DELETE` em `/:id`. O cliente aceita os registros de criação sem envelope e os Resources com `{ data: ... }` retornados pela API. Não há registros fictícios nem persistência paralela no navegador.
+
+As listagens `GET /api/products` e `GET /api/categories` são públicas. Os endpoints individuais, alterações no catálogo e os demais recursos continuam protegidos por Sanctum. A vitrine não exibe botões de criação, edição ou exclusão.
+
+As rotas `#products` e `#categories` abrem a vitrine; `#overview` abre a gestão (ou o login). Na gestão, `#manage-products` e `#manage-categories` reutilizam as tabelas e formulários existentes. Busca e categoria selecionada são reiniciadas ao recarregar a página. Não há carrinho de compras público, checkout ou promoções simuladas.
 
 Os valores de status enviados são `pendente`, `pago` e `cancelado`. Endereços e pedidos usam `users_id`; carrinhos usam `user_id`. Como a resposta de endereço não inclui `users_id`, esse campo é enviado apenas no cadastro, preservando o vínculo na edição. O complemento é obrigatório no cadastro, conforme o contrato atual. Pagamentos são registros da API; não há processamento financeiro externo. Pedidos, seus itens e pagamentos são cadastrados separadamente, pois a API não oferece checkout transacional.
 
