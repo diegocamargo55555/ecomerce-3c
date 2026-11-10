@@ -16,7 +16,6 @@ const emit = defineEmits([
   "notify",
   "navigate",
   "user-updated",
-  "self-deleted",
 ]);
 const config = computed(() => resources[props.resourceKey]);
 const rows = ref([]);
@@ -279,16 +278,14 @@ async function remove() {
     const id = deleting.value.id;
     await api(`/api/${props.resourceKey}/${id}`, { method: "DELETE" });
     deleting.value = null;
-    if (props.resourceKey === "users" && id === props.user.id) {
-      emit("self-deleted");
-      return;
-    }
     emit("notify", "Registro excluído com sucesso.");
     await load();
   } catch (failure) {
     formError.value =
       failure.status === 409 && props.resourceKey === "categories"
         ? "Não é possível excluir esta categoria: há produtos vinculados a ela. Mova ou exclua os produtos antes."
+        : failure.status === 409 && props.resourceKey === "users"
+        ? "Não é possível excluir esta pessoa: é a sua própria conta ou há pedidos registrados nela."
         : failure.status >= 500
         ? "Não foi possível excluir. Este registro pode estar vinculado a outros dados da loja."
         : failure.message;

@@ -50,4 +50,5 @@ EXPOSE 8000
 
 # public/storage -> storage/app/public, so uploaded product images are served;
 # optimize caches config, routes and events with the real environment.
-CMD ["sh", "-c", "php artisan storage:link --force && php artisan optimize && exec frankenphp run --config /etc/frankenphp/Caddyfile"]
+# shortcut: the scheduler (orders:cancel-unpaid) runs in the background and is not restarted if it dies; give it its own container when that matters.
+CMD ["sh", "-c", "php artisan storage:link --force && php artisan optimize && (php artisan schedule:work &) && exec frankenphp run --config /etc/frankenphp/Caddyfile"]

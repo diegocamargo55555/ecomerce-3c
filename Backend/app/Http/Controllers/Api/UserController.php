@@ -7,6 +7,7 @@ use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Services\UserService;
+use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
@@ -51,8 +52,10 @@ class UserController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
+        // Não há endpoint de promoção: excluir a própria conta pode deixar a loja sem admin.
+        abort_if((int) $id === $request->user()->id, 409, 'Você não pode excluir a própria conta.');
         $this->userService->delete($id);
         return response()->noContent();
     }

@@ -328,7 +328,6 @@ onBeforeUnmount(() => {
           @notify="notify"
           @navigate="navigateManagement"
           @user-updated="user = $event"
-          @self-deleted="endSession('Sua conta foi excluída.')"
         />
       </main>
       <footer class="workspace-footer">

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class UserService
 {
@@ -32,6 +33,16 @@ class UserService
 
     public function delete(int $id): void
     {
-        User::findOrFail($id)->delete();
+        DB::transaction(function () use ($id) {
+            $user = User::lockForUpdate()->findOrFail($id);
+            // Pedidos guardam o histórico de vendas e referenciam a conta e seus endereços.
+            abort_if(
+                $user->orders()->exists(),
+                409,
+                "Não é possível excluir {$user->name}: há pedidos registrados nesta conta."
+            );
+            $user->carts()->delete();
+            $user->delete();
+        });
     }
 }
