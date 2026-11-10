@@ -59,8 +59,7 @@ class AddressController extends Controller
      */
     public function store(StoreAddressRequest $request)
     {
-        $address = $this->addressService->create($request->all());
-        return response()->json($address, 201);
+        return new AddressResource($this->addressService->create($request->validated()));
     }
 
     /**
@@ -89,18 +88,3 @@ class AddressController extends Controller
         return response()->noContent();
     }
 }
-
-
-
-
-/*
-php artisan make:resource AddressResource
-php artisan make:resource CartResource
-php artisan make:resource CategoryResource
-php artisan make:resource OrderResource
-php artisan make:resource OrderItemResource
-php artisan make:resource PaymentResource
-php artisan make:resource ProductResource
-php artisan make:resource UserResource
-
-*/
