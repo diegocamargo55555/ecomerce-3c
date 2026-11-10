@@ -234,17 +234,6 @@ async function save() {
             : value;
     if (field.type === "datetime-local" && value)
       payload[field.key] = new Date(value).toISOString();
-    // Na edição, só o que mudou é enviado: reenviar o estoque lido ao abrir o
-    // formulário desfaria vendas feitas enquanto ele estava aberto.
-    if (
-      editing.value &&
-      field.type !== "datetime-local" &&
-      payload[field.key] ===
-        (field.type === "number" || field.resource
-          ? Number(editing.value[field.key])
-          : (editing.value[field.key] ?? null))
-    )
-      delete payload[field.key];
   }
   try {
     const id = editing.value?.id;
@@ -266,8 +255,8 @@ async function save() {
     if (props.resourceKey === "users" && id === props.user.id)
       emit("user-updated", {
         ...props.user,
-        name: payload.name ?? props.user.name,
-        email: payload.email ?? props.user.email,
+        name: payload.name,
+        email: payload.email,
       });
     modalOpen.value = false;
     emit("notify", `Registro ${id ? "atualizado" : "criado"} com sucesso.`);
@@ -302,8 +291,6 @@ async function remove() {
         ? "Não é possível excluir esta categoria: há produtos vinculados a ela. Mova ou exclua os produtos antes."
         : failure.status >= 500
         ? "Não foi possível excluir. Este registro pode estar vinculado a outros dados da loja."
-        : failure.status === 409 && failure.serverMessage
-        ? failure.serverMessage
         : failure.message;
   } finally {
     busy.value = false;

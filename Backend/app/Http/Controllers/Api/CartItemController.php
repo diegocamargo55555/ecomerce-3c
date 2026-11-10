@@ -51,7 +51,9 @@ class CartItemController extends Controller
 
     public function store(StoreCartItemRequest $request)
     {
-        return new CartItemResource($this->cartItemService->create($request->validated()));
+        $cartItem = $this->cartItemService->create($request->all());
+
+        return response()->json($cartItem, 201);
     }
 
     public function show(string $id)

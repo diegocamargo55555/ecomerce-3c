@@ -13,9 +13,6 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
             $middleware->statefulApi();
-            // A API só é alcançada pelo proxy (Nginx/Vite/plataforma); sem isto todo
-            // visitante teria o IP do proxy e dividiria o mesmo limite de login.
-            $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

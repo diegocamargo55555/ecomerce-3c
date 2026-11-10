@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 
 class UserService
 {
@@ -33,21 +32,6 @@ class UserService
 
     public function delete(int $id): void
     {
-        DB::transaction(function () use ($id) {
-            $user = User::lockForUpdate()->findOrFail($id);
-            abort_if(
-                $user->orders()->exists(),
-                409,
-                "Não é possível excluir {$user->name}: há pedidos vinculados a esta conta."
-            );
-            abort_if(
-                $user->role === 'admin' && User::where('role', 'admin')->count() === 1,
-                409,
-                'Não é possível excluir o único admin da loja.'
-            );
-            // O carrinho (e seus itens, em cascata) impediria a exclusão.
-            $user->carts()->delete();
-            $user->delete();
-        });
+        User::findOrFail($id)->delete();
     }
 }

@@ -1,11 +1,9 @@
 export class ApiError extends Error {
-  constructor(message, status = 0, errors = {}, serverMessage = "") {
+  constructor(message, status = 0, errors = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.errors = errors;
-    // Motivo informado pela API (ex.: por que uma exclusão foi recusada).
-    this.serverMessage = serverMessage;
   }
 }
 
@@ -109,7 +107,6 @@ export async function api(path, { method = "GET", body } = {}, retry = true) {
         : messages[response.status] || "Não foi possível concluir esta ação.",
       response.status,
       payload?.errors || {},
-      response.status < 500 ? payload?.message || "" : "",
     );
   }
   return payload;

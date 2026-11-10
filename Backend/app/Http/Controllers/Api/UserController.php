@@ -27,7 +27,8 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request)
     {
-        return new UserResource($this->userService->create($request->validated()));
+        $user = $this->userService->create($request->validated());
+        return response()->json($user, 201);
     }
 
     /**

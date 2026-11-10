@@ -34,7 +34,9 @@ class ProductController extends Controller
 
     public function store(StoreProductRequest $request)
     {
-        return new ProductResource($this->productService->create($request->validated())->refresh());
+        $product = $this->productService->create($request->all());
+
+        return response()->json($product, 201);
     }
 
     public function show(string $id)
