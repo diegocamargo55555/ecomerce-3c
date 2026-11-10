@@ -55,7 +55,17 @@ export const resources = {
       }),
       money("price", "Preço (R$)"),
       number("stock", "Estoque", { default: 0 }),
-      text("image_url", "URL da imagem", {
+      {
+        key: "image",
+        label: "Imagem do produto",
+        type: "file",
+        accept: "image/jpeg,image/png,image/webp",
+        maxBytes: 2 * 1024 * 1024,
+        required: false,
+        wide: true,
+        hint: "JPG, PNG ou WebP de até 2 MB. O arquivo enviado substitui a imagem atual.",
+      },
+      text("image_url", "Ou URL de uma imagem externa", {
         type: "url",
         required: false,
         wide: true,

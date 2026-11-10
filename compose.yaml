@@ -38,6 +38,8 @@ services:
     volumes:
       - ./Backend:/app
       - /app/vendor
+      # uploads de imagens de produtos sobrevivem à recriação do container
+      - product_images:/app/storage/app/public
     healthcheck:
       test:
         - CMD
@@ -71,3 +73,4 @@ services:
 
 volumes:
   mysql_data:
+  product_images:

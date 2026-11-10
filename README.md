@@ -97,6 +97,14 @@ docker compose exec php php artisan db:seed
 
 Os cinco status estão definidos diretamente na migration que cria `orders`. O checkout cria pedidos pendentes e a confirmação de pagamento os torna pagos; o admin pode avançar de pago para enviado e de enviado para entregue. Alterar a migration original não atualiza tabelas já criadas. Instalações novas já aceitam os cinco status.
 
+## Imagens de produtos
+
+No painel **Produtos**, o formulário de criação e edição tem o campo **Imagem do produto**: escolha um arquivo JPG, PNG ou WebP de até 2 MB. O campo de URL externa continua disponível; se os dois forem preenchidos, o arquivo enviado prevalece. O painel salva o produto e, em seguida, envia o arquivo; se o envio falhar, o produto permanece salvo e o formulário avisa.
+
+`POST /api/admin/products/{id}/image` (somente admin) recebe o arquivo no campo `image` em `multipart/form-data`. O tipo é validado pelo conteúdo, o nome é gerado pelo servidor e `image_url` passa a apontar para `/storage/products/<nome>`. A imagem enviada anteriormente é apagada; URLs externas e as fotos dos seeders em `Backend/public/images/products` não são alteradas. Arquivo ausente, de outro tipo ou acima de 2 MB retorna 422; produto inexistente ou excluído retorna 404.
+
+Os arquivos ficam em `storage/app/public`, montado no volume nomeado `product_images` do Compose, e por isso sobrevivem à recriação do container (`docker compose up -d --force-recreate php`). Eles só são apagados com `docker compose down -v`. Ao iniciar, o container executa `php artisan storage:link`, que cria `public/storage`; o Nginx já encaminha `/storage/` para a API e aceita corpos de até 5 MB (`client_max_body_size`). A URL gravada usa `APP_URL` como origem.
+
 ## Página pública do produto
 
 Clique na imagem, no nome ou em “Ver detalhes” para abrir `/#products/ID`. O endereço pode ser compartilhado e recarregado sem login. A página consulta `GET /api/products/{id}` e exibe nome, imagem, descrição, categoria, preço e estoque. Produtos inexistentes, inativos ou excluídos retornam 404. Produtos ativos sem estoque continuam visíveis, com a compra desabilitada.

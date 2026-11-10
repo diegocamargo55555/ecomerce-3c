@@ -1,6 +1,6 @@
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
-import { api, listResource } from "../api/http.js";
+import { api, listResource, resourceData, uploadProductImage } from "../api/http.js";
 import {
   resources,
   currency,
@@ -173,6 +173,7 @@ function openForm(row = null) {
   for (const field of config.value.fields) {
     let value = row?.[field.key] ?? field.default ?? "";
     if (field.type === "password") value = "";
+    if (field.type === "file") value = null;
     if (field.type === "checkbox")
       value = row ? !!row[field.key] : !!field.default;
     if (field.type === "datetime-local" && value) {
@@ -198,12 +199,29 @@ function closeForm() {
   if (!busy.value) modalOpen.value = false;
 }
 
+function chooseFile(field, event) {
+  const file = event.target.files?.[0] || null;
+  const errors = { ...fieldErrors.value };
+  delete errors[field.key];
+  if (file && field.maxBytes && file.size > field.maxBytes) {
+    errors[field.key] = ["O arquivo ultrapassa o limite de 2 MB."];
+    event.target.value = "";
+    form[field.key] = null;
+  } else {
+    form[field.key] = file;
+  }
+  fieldErrors.value = errors;
+}
+
 async function save() {
   busy.value = true;
   formError.value = "";
   fieldErrors.value = {};
   const payload = {};
+  const image = props.resourceKey === "products" ? form.image : null;
+  let savedBeforeUpload = false;
   for (const field of fields.value) {
+    if (field.type === "file") continue;
     const value = form[field.key];
     if (editing.value && field.optionalOnEdit && !value) continue;
     payload[field.key] =
@@ -219,10 +237,21 @@ async function save() {
   }
   try {
     const id = editing.value?.id;
-    await api(`/api/${props.resourceKey}${id ? `/${id}` : ""}`, {
-      method: id ? "PATCH" : "POST",
-      body: payload,
-    });
+    // Com arquivo escolhido, a URL atual não é reenviada: o upload a substitui.
+    if (image && id) delete payload.image_url;
+    const saved = resourceData(
+      await api(`/api/${props.resourceKey}${id ? `/${id}` : ""}`, {
+        method: id ? "PATCH" : "POST",
+        body: payload,
+      }),
+    );
+    if (image) {
+      // O produto já foi salvo: se o upload falhar, o formulário passa a
+      // editá-lo, e uma nova tentativa não cria um produto duplicado.
+      editing.value = { ...saved, ...payload, id: saved.id };
+      savedBeforeUpload = true;
+      await uploadProductImage(saved.id, image);
+    }
     if (props.resourceKey === "users" && id === props.user.id)
       emit("user-updated", {
         ...props.user,
@@ -233,8 +262,11 @@ async function save() {
     emit("notify", `Registro ${id ? "atualizado" : "criado"} com sucesso.`);
     await load();
   } catch (failure) {
-    formError.value = failure.message;
+    formError.value = savedBeforeUpload
+      ? `O produto foi salvo, mas a imagem não foi enviada. ${failure.message}`
+      : failure.message;
     fieldErrors.value = failure.errors || {};
+    if (savedBeforeUpload) load();
   } finally {
     busy.value = false;
   }
@@ -684,6 +716,17 @@ function exportCsv() {
                     </option></template
                   ></select
                 ><input
+                  v-else-if="field.type === 'file'"
+                  :id="`field-${field.key}`"
+                  type="file"
+                  :accept="field.accept"
+                  :disabled="busy"
+                  :aria-invalid="!!fieldErrors[field.key]"
+                  :aria-describedby="
+                    fieldErrors[field.key] ? `error-${field.key}` : undefined
+                  "
+                  @change="chooseFile(field, $event)"
+                /><input
                   v-else
                   :id="`field-${field.key}`"
                   v-model="form[field.key]"

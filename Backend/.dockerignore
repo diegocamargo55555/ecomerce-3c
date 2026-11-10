@@ -2,3 +2,7 @@ vendor
 node_modules
 .env
 .git
+public/storage
+# discos falsos criados pelos testes de upload (pertencem ao root do container)
+storage/framework/testing/*
+!storage/framework/testing/.gitignore

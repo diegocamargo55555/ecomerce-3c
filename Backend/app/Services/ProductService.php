@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class ProductService
 {
@@ -56,6 +58,42 @@ class ProductService
         $product->update($data);
 
         return $product;
+    }
+
+    /**
+     * Grava o arquivo no disco "public" (storage/app/public/products), que o
+     * Compose mantém em um volume, e aponta image_url para ele. A imagem enviada
+     * anteriormente é apagada; URLs externas e fotos dos seeders não são tocadas.
+     */
+    public function updateImage(int $id, UploadedFile $file): Product
+    {
+        $product = Product::findOrFail($id);
+        $disk = Storage::disk('public');
+        $previous = $this->uploadedImagePath($product->image_url);
+
+        $path = $file->store('products', 'public');
+        abort_if($path === false, 500, 'Não foi possível gravar a imagem.');
+
+        try {
+            $product->update(['image_url' => $disk->url($path)]);
+        } catch (\Throwable $exception) {
+            $disk->delete($path);
+            throw $exception;
+        }
+
+        if ($previous !== null && $previous !== $path) {
+            $disk->delete($previous);
+        }
+
+        return $product;
+    }
+
+    private function uploadedImagePath(?string $url): ?string
+    {
+        $prefix = Storage::disk('public')->url('products/');
+
+        return $url !== null && str_starts_with($url, $prefix)
+            ? 'products/'.basename($url) : null;
     }
 
     public function delete(int $id): void

@@ -62,12 +62,19 @@ async function ensureCsrf(refresh = false) {
 export async function api(path, { method = "GET", body } = {}, retry = true) {
   const writes = !["GET", "HEAD"].includes(method);
   if (writes) await ensureCsrf();
+  // FormData (upload de arquivo): o navegador define o Content-Type multipart.
+  const multipart = typeof FormData !== "undefined" && body instanceof FormData;
   const response = await request(path, {
     method,
     headers: writes
-      ? { "Content-Type": "application/json", "X-XSRF-TOKEN": csrfToken() }
+      ? {
+          ...(multipart ? {} : { "Content-Type": "application/json" }),
+          "X-XSRF-TOKEN": csrfToken(),
+        }
       : {},
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(body === undefined
+      ? {}
+      : { body: multipart ? body : JSON.stringify(body) }),
   });
 
   if (response.status === 419 && retry) {
@@ -89,6 +96,7 @@ export async function api(path, { method = "GET", body } = {}, retry = true) {
       403: "Você não tem permissão para realizar esta ação.",
       404: "Este registro não está mais disponível. Atualize a lista.",
       409: "Esta operação não está disponível no estado atual do pedido.",
+      413: "O arquivo enviado é grande demais.",
       419: "Sua sessão expirou. Atualize a página e tente novamente.",
       422: "Confira os campos indicados e tente novamente.",
       429: "Muitas tentativas. Aguarde um minuto e tente novamente.",
@@ -167,6 +175,14 @@ export async function cancelOrder(id) {
 export async function updateOrderStatus(id, status) {
   return resourceData(await api(`/api/admin/orders/${encodeURIComponent(id)}/status`, {
     method: "PATCH", body: { status },
+  }));
+}
+
+export async function uploadProductImage(id, file) {
+  const body = new FormData();
+  body.append("image", file);
+  return resourceData(await api(`/api/admin/products/${encodeURIComponent(id)}/image`, {
+    method: "POST", body,
   }));
 }
 

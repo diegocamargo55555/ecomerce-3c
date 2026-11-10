@@ -51,6 +51,16 @@ class ProductController extends Controller
         return new ProductResource($product);
     }
 
+    public function uploadImage(Request $request, int $id)
+    {
+        // 2 MB: dentro do limite padrão de upload do PHP (upload_max_filesize).
+        $data = $request->validate([
+            'image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        return new ProductResource($this->productService->updateImage($id, $data['image']));
+    }
+
     public function destroy(string $id)
     {
         $this->productService->delete($id);

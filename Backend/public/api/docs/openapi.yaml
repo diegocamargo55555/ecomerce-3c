@@ -323,6 +323,50 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /api/admin/products/{id}/image:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    post:
+      tags: [Admin · Catálogo]
+      summary: Envia a imagem de um produto
+      description: |
+        **Admin.** Recebe o arquivo em `multipart/form-data`, grava em
+        `storage/app/public/products` (volume `product_images` do Compose) e aponta
+        `image_url` para `/storage/products/<nome>`, servido publicamente. O nome do
+        arquivo é gerado pelo servidor. A imagem enviada anteriormente é apagada;
+        URLs externas e fotos dos seeders não são tocadas.
+
+        Aceita JPG, PNG ou WebP de até 2 MB; o tipo é verificado pelo conteúdo do
+        arquivo. Produto inexistente ou excluído retorna 404.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: "JPG, PNG ou WebP de até 2 MB."
+      responses:
+        "200":
+          description: Produto com a nova `image_url`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Product" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413":
+          description: Corpo acima de 5 MB, recusado pelo proxy Nginx antes de chegar à API (resposta HTML).
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /api/categories:
     get:
       tags: [Catálogo]
@@ -1389,7 +1433,7 @@ components:
         description: { type: string }
         price: { type: number, minimum: 0, maximum: 99999999.99, description: Até 2 casas decimais., example: 129.9 }
         stock: { type: integer, minimum: 0 }
-        image_url: { type: string, format: uri, maxLength: 255, nullable: true, description: URL da imagem; a API não recebe upload de arquivo. }
+        image_url: { type: string, format: uri, maxLength: 255, nullable: true, description: "URL de uma imagem externa. Para enviar um arquivo, use `POST /api/admin/products/{id}/image`." }
         is_active: { type: boolean }
     ProductUpdate:
       type: object
