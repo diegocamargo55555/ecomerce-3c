@@ -55,4 +55,16 @@ class ProfileTest extends TestCase
         $this->assertNull($user->fresh()->email_verified_at);
         $this->getJson('/api/me')->assertOk()->assertJsonPath('data.email', 'novo@example.com');
     }
+
+    public function test_login_limit_counts_each_visitor_behind_the_proxy_separately(): void
+    {
+        $this->withHeader('Origin', 'http://localhost');
+        $login = fn (string $ip) => $this->withHeader('X-Forwarded-For', $ip)
+            ->postJson('/api/login', ['email' => 'ninguem@example.com', 'password' => 'errada']);
+        for ($i = 0; $i < 6; $i++) {
+            $login('203.0.113.1')->assertUnprocessable();
+        }
+        $login('203.0.113.1')->assertTooManyRequests();
+        $login('203.0.113.2')->assertUnprocessable();
+    }
 }

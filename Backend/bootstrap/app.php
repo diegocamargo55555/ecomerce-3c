@@ -12,6 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
             $middleware->statefulApi();
+            // O PHP só é alcançado pelo Nginx: confia nos cabeçalhos X-Forwarded-* para obter o IP real.
+            $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
