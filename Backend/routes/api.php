@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\CartItemController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderItemController;
+use App\Http\Controllers\Api\OverviewController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\UserController;
@@ -45,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->only(['show'])->whereNumber('category');
 
     Route::middleware('can:admin')->group(function () {
+        Route::get('admin/overview', OverviewController::class);
         Route::get('admin/products', [ProductController::class, 'adminIndex']);
         Route::post('admin/products/{id}/image', [ProductController::class, 'uploadImage'])->whereNumber('id');
         Route::patch('admin/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id');

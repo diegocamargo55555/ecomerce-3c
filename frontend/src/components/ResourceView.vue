@@ -129,6 +129,7 @@ async function load() {
         .map((field) => field.resource),
     ),
   ];
+  // shortcut: loads whole tables, because search, filters, CSV and relation labels run in the browser; move them to the server with paginate() when a table passes a few thousand rows.
   const result = await Promise.allSettled([
     listResource(key),
     ...keys.map(listResource),

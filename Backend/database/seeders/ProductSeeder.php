@@ -67,7 +67,7 @@ class ProductSeeder extends Seeder
                 'description' => $product['description'],
                 'price' => $product['price'],
                 'stock' => $product['stock'],
-                'image_url' => asset('images/products/'.$product['image']),
+                'image_url' => '/images/products/'.$product['image'],
                 'is_active' => $product['is_active'],
                 'created_at' => $now,
                 'updated_at' => $now,

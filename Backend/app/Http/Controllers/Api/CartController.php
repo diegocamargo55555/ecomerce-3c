@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCartRequest;
 use App\Http\Requests\UpdateCartRequest;
 use App\Http\Resources\CartResource;
+use App\Models\Cart;
 use App\Services\CartService;
 use Illuminate\Http\Request;
 
@@ -17,7 +18,11 @@ class CartController extends Controller
 
     public function current(Request $request)
     {
-        return (new CartResource($this->cartService->details($this->cartService->current($request))))
+        // Só visitar a loja não grava carrinho: o de visitante nasce ao adicionar o primeiro item.
+        $cart = $request->user() || $request->session()->has('cart_token')
+            ? $this->cartService->current($request) : new Cart;
+
+        return (new CartResource($this->cartService->details($cart)))
             ->response()->setStatusCode(200);
     }
 
@@ -28,8 +33,8 @@ class CartController extends Controller
 
     public function store(StoreCartRequest $request)
     {
-        $cart = $this->cartService->create($request->all());
-        return response()->json($cart, 201);
+        $cart = $this->cartService->create($request->validated());
+        return (new CartResource($cart))->response()->setStatusCode(201);
     }
 
     public function show(string $id)

@@ -17,10 +17,10 @@ test("product image upload sends multipart form data with CSRF and returns the p
     assert.equal(options.headers["Content-Type"], undefined);
     assert.ok(options.body instanceof FormData);
     assert.equal(options.body.get("image").name, "foto.png");
-    return Response.json({ data: { id: 7, image_url: "http://localhost/storage/products/a.png" } });
+    return Response.json({ data: { id: 7, image_url: "/storage/products/a.png" } });
   };
   assert.deepEqual(await uploadProductImage(7, file), {
-    id: 7, image_url: "http://localhost/storage/products/a.png",
+    id: 7, image_url: "/storage/products/a.png",
   });
 });
 

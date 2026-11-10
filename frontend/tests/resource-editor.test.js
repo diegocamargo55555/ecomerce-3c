@@ -30,7 +30,7 @@ beforeEach(() => {
   globalThis.fetch = async (path, options) => {
     if (path.endsWith("/image")) {
       if (failUpload) return Response.json({}, { status: 500 });
-      record.image_url = "http://localhost/storage/products/new.png";
+      record.image_url = "/storage/products/new.png";
       return Response.json({ data: { ...record } });
     }
     if (["POST", "PATCH"].includes(options.method)) {
@@ -112,7 +112,7 @@ test("retrying a failed image upload does not resend stock saved before a later 
 
   assert.deepEqual(writes.map(write => write.body), [{ stock: 12 }, {}]);
   assert.equal(record.stock, 11);
-  assert.equal(record.image_url, "http://localhost/storage/products/new.png");
+  assert.equal(record.image_url, "/storage/products/new.png");
 });
 
 test("a partial self-edit preserves the signed-in user's other fields", async () => {

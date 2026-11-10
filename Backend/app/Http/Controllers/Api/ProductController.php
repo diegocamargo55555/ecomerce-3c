@@ -34,9 +34,9 @@ class ProductController extends Controller
 
     public function store(StoreProductRequest $request)
     {
-        $product = $this->productService->create($request->all());
+        $product = $this->productService->create($request->validated());
 
-        return response()->json($product, 201);
+        return (new ProductResource($product))->response()->setStatusCode(201);
     }
 
     public function show(string $id)

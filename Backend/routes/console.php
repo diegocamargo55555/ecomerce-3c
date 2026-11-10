@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Cart;
 use App\Models\Order;
 use App\Services\OrderService;
 use Illuminate\Foundation\Inspiring;
@@ -18,3 +19,13 @@ Artisan::command('orders:cancel-unpaid', function (OrderService $orders) {
 })->purpose('Cancela pedidos pendentes há mais de 30 minutos e devolve o estoque');
 
 Schedule::command('orders:cancel-unpaid')->everyFiveMinutes()->withoutOverlapping();
+
+// Carrinhos de visitante sem uso há uma semana: a sessão que os alcançava já expirou.
+Artisan::command('carts:prune-guests', function () {
+    $limit = now()->subWeek();
+    Cart::whereNull('user_id')->where('created_at', '<', $limit)
+        ->whereDoesntHave('items', fn ($items) => $items->where('updated_at', '>=', $limit))
+        ->delete();
+})->purpose('Remove carrinhos de visitante sem alterações há mais de 7 dias');
+
+Schedule::command('carts:prune-guests')->daily();

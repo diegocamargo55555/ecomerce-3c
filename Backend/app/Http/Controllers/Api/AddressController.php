@@ -59,8 +59,8 @@ class AddressController extends Controller
      */
     public function store(StoreAddressRequest $request)
     {
-        $address = $this->addressService->create($request->all());
-        return response()->json($address, 201);
+        $address = $this->addressService->create($request->validated());
+        return (new AddressResource($address))->response()->setStatusCode(201);
     }
 
     /**

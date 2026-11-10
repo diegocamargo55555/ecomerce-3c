@@ -1,68 +1,55 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { listResource } from "../api/http.js";
+import { api, resourceData } from "../api/http.js";
 import { currency, date } from "../resources.js";
 import Icon from "./Icon.vue";
 
 defineProps({ user: Object });
 const emit = defineEmits(["navigate"]);
-const data = ref({ products: [], orders: [], payments: [], users: [] });
+// null: os números não puderam ser carregados.
+const data = ref(null);
 const loading = ref(true);
 const error = ref("");
-const keys = ["products", "orders", "payments", "users"];
 async function load() {
   loading.value = true;
   error.value = "";
-  const results = await Promise.allSettled(keys.map(listResource));
-  results.forEach((result, index) => {
-    data.value[keys[index]] =
-      result.status === "fulfilled" ? result.value : null;
-  });
-  if (results.some((result) => result.status === "rejected"))
+  try {
+    data.value = resourceData(await api("/api/admin/overview"));
+  } catch {
+    data.value = null;
     error.value =
-      "Alguns dados não puderam ser carregados. Tente atualizar o painel.";
+      "Os dados não puderam ser carregados. Tente atualizar o painel.";
+  }
   loading.value = false;
 }
 onMounted(load);
-const lowStock = computed(() =>
-  (data.value.products || [])
-    .filter((row) => row.is_active && Number(row.stock) <= 5)
-    .sort((a, b) => a.stock - b.stock),
-);
-const recentOrders = computed(() =>
-  [...(data.value.orders || [])].sort((a, b) => b.id - a.id).slice(0, 5),
-);
+const lowStock = computed(() => data.value?.low_stock || []);
+const recentOrders = computed(() => data.value?.recent_orders || []);
 const stats = computed(() => [
   {
     title: "Total de pedidos",
-    value: data.value.orders?.length ?? "—",
+    value: data.value?.orders_count ?? "—",
     icon: "orders",
     caption: "Pedidos registrados",
     target: "orders",
   },
   {
     title: "Produtos ativos",
-    value: data.value.products?.filter((row) => row.is_active).length ?? "—",
+    value: data.value?.active_products_count ?? "—",
     icon: "box",
     caption: "Disponíveis no catálogo",
     target: "products",
   },
   {
     title: "Pagamentos recebidos",
-    value: data.value.payments
-      ? currency(
-          data.value.payments
-            .filter((row) => row.status === "pago")
-            .reduce((sum, row) => sum + Number(row.amount), 0),
-        )
-      : "—",
+    value: data.value ? currency(data.value.paid_total) : "—",
     icon: "wallet",
     caption: "Total com status pago",
     target: "payments",
   },
   {
     title: "Atenção ao estoque",
-    value: data.value.products ? lowStock.value.length : "—",
+    value: data.value?.low_stock_count ?? "—",
     icon: "alert",
     caption: "Produtos com até 5 unidades",
     target: "products",
@@ -73,12 +60,6 @@ const today = new Intl.DateTimeFormat("pt-BR", {
   month: "long",
   year: "numeric",
 }).format(new Date());
-function customer(id) {
-  return (
-    data.value.users?.find((user) => Number(user.id) === Number(id))?.name ||
-    `Cliente #${id}`
-  );
-}
 </script>
 
 <template>
@@ -141,7 +122,7 @@ function customer(id) {
         <div v-if="loading" class="compact-loading" role="status">
           <span class="spinner" /> Carregando pedidos…
         </div>
-        <div v-else-if="data.orders === null" class="empty-state compact">
+        <div v-else-if="data === null" class="empty-state compact">
           <Icon name="alert" :size="28" />
           <h3>Pedidos indisponíveis</h3>
           <button class="text-button" @click="load">Tentar novamente</button>
@@ -172,7 +153,7 @@ function customer(id) {
                   <strong class="order-id"
                     >#{{ String(order.id).padStart(4, "0")
                     }}<small
-                      >{{ customer(order.users_id) }} ·
+                      >{{ order.customer_name }} ·
                       {{ date(order.created_at) }}</small
                     ></strong
                   >
@@ -215,7 +196,7 @@ function customer(id) {
         <div v-if="loading" class="compact-loading" role="status">
           <span class="spinner" /> Carregando produtos…
         </div>
-        <div v-else-if="data.products === null" class="empty-state compact">
+        <div v-else-if="data === null" class="empty-state compact">
           <Icon name="alert" :size="28" />
           <h3>Estoque indisponível</h3>
           <button class="text-button" @click="load">Tentar novamente</button>
@@ -224,21 +205,21 @@ function customer(id) {
           <span class="empty-icon"><Icon name="check" :size="26" /></span>
           <h3>
             {{
-              data.products.length
+              data.products_count
                 ? "Tudo em dia por aqui"
                 : "Seu catálogo está começando"
             }}
           </h3>
           <p>
             {{
-              data.products.length
+              data.products_count
                 ? "Nenhum produto ativo com estoque baixo."
                 : "Cadastre seus produtos para acompanhar o estoque."
             }}
           </p>
         </div>
         <ul v-else class="stock-list">
-          <li v-for="product in lowStock.slice(0, 5)" :key="product.id">
+          <li v-for="product in lowStock" :key="product.id">
             <span class="product-thumb"><Icon name="box" :size="21" /></span>
             <div>
               <strong>{{ product.name }}</strong

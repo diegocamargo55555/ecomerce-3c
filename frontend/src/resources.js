@@ -65,8 +65,8 @@ export const resources = {
         wide: true,
         hint: "JPG, PNG ou WebP de até 2 MB. O arquivo enviado substitui a imagem atual.",
       },
+      // Texto, não "url": imagens enviadas ficam como caminho (/storage/...), que um campo "url" recusa.
       text("image_url", "Ou URL de uma imagem externa", {
-        type: "url",
         required: false,
         wide: true,
       }),

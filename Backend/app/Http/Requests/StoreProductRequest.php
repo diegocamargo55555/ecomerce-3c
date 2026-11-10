@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreProductRequest extends FormRequest
 {
@@ -28,7 +29,7 @@ class StoreProductRequest extends FormRequest
             'description' => ['required', 'string'],
             'price' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
             'stock' => ['sometimes', 'required', 'integer', 'min:0'],
-            'image_url' => ['nullable', 'url', 'max:255'],
+            'image_url' => ['nullable', 'string', 'max:255', Rule::when(! str_starts_with((string) $this->input('image_url'), '/'), ['url'])],
             'is_active' => ['sometimes', 'required', 'boolean'],
         ];
     }

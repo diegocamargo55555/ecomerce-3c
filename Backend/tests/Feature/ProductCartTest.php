@@ -170,4 +170,77 @@ class ProductCartTest extends TestCase
         $this->patchJson("/api/carts/{$otherCart->id}", ['user_id' => $client->id])
             ->assertUnprocessable()->assertJsonValidationErrors('user_id');
     }
+
+    public function test_viewing_the_cart_as_a_guest_stores_nothing_until_an_item_is_added(): void
+    {
+        $this->getJson('/api/cart')->assertOk()
+            ->assertJsonPath('data.items', [])->assertJsonPath('data.item_count', 0)->assertJsonPath('data.total', '0.00');
+        $this->assertDatabaseCount('carts', 0);
+        $this->assertNull(session('cart_token'));
+
+        $this->postJson('/api/cart/items', ['product_id' => $this->product->id, 'quantity' => 2])->assertSuccessful();
+        $this->getJson('/api/cart')->assertOk()->assertJsonPath('data.item_count', 2);
+        $this->assertDatabaseCount('carts', 1);
+    }
+
+    public function test_prune_removes_only_guest_carts_unused_for_a_week(): void
+    {
+        $old = now()->subDays(8);
+        $account = Cart::create(['user_id' => User::factory()->create()->id]);
+        $stale = Cart::create(['guest_token' => 'stale']);
+        $active = Cart::create(['guest_token' => 'active']);
+        $recent = Cart::create(['guest_token' => 'recent']);
+        Cart::whereKey([$account->id, $stale->id, $active->id])->update(['created_at' => $old]);
+        Cart_item::create(['cart_id' => $stale->id, 'product_id' => $this->product->id, 'quantity' => 1]);
+        Cart_item::where('cart_id', $stale->id)->update(['updated_at' => $old]);
+        Cart_item::create(['cart_id' => $active->id, 'product_id' => $this->product->id, 'quantity' => 1]);
+
+        $this->artisan('carts:prune-guests')->assertSuccessful();
+
+        $this->assertSame([$account->id, $active->id, $recent->id], Cart::orderBy('id')->pluck('id')->all());
+        $this->assertDatabaseCount('cart_items', 1);
+    }
+
+    public function test_admin_creations_answer_like_updates_and_overview_counts_in_the_database(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->getJson('/api/admin/overview')->assertUnauthorized();
+        $this->actingAs(User::factory()->create())->getJson('/api/admin/overview')->assertForbidden();
+        $this->actingAs($admin);
+
+        $categoryId = $this->postJson('/api/categories', ['name' => 'Tintas', 'slug' => 'tintas'])
+            ->assertCreated()->assertJsonPath('data.slug', 'tintas')->json('data.id');
+        $this->postJson('/api/products', [
+            'category_id' => $categoryId, 'name' => 'Tinta', 'description' => 'Azul', 'price' => '9.90', 'stock' => 6,
+        ])->assertCreated()->assertJsonPath('data.price', '9.90')->assertJsonPath('data.stock', 6)->assertJsonPath('data.is_active', true);
+        $userId = $this->postJson('/api/users', ['name' => 'Ana', 'email' => 'ana@loja.test', 'password' => 'segredo123'])
+            ->assertCreated()->assertJsonPath('data.role', 'cliente')->assertJsonMissingPath('data.password')->json('data.id');
+        $addressId = $this->postJson('/api/addresses', [
+            'users_id' => $userId, 'recipient_name' => 'Ana', 'zip_code' => '01001000', 'street' => 'Rua A',
+            'number' => '10', 'neighborhood' => 'Centro', 'city' => 'São Paulo', 'state' => 'SP',
+        ])->assertCreated()->assertJsonPath('data.city', 'São Paulo')->json('data.id');
+        $this->assertDatabaseHas('addresses', ['id' => $addressId, 'users_id' => $userId]);
+        $cartId = $this->postJson('/api/carts', ['user_id' => $userId])->assertCreated()->json('data.id');
+        $this->postJson('/api/cart-items', ['cart_id' => $cartId, 'product_id' => $this->product->id, 'quantity' => 1])
+            ->assertCreated()->assertJsonPath('data.cart_id', $cartId);
+
+        $order = \App\Models\Order::create([
+            'users_id' => $userId, 'address_id' => $addressId, 'status' => 'pago',
+            'subtotal' => '10.00', 'shipping_cost' => '20.00', 'total' => '30.00',
+        ]);
+        $order->payments()->create(['status' => 'pago', 'amount' => '30.00', 'paid_at' => now()]);
+        $order->payments()->getModel()->newQuery()->create(['order_id' => \App\Models\Order::create([
+            ...$order->only('users_id', 'address_id', 'subtotal', 'shipping_cost', 'total'), 'status' => 'pendente',
+        ])->id, 'status' => 'pendente', 'amount' => '30.00']);
+        Product::create([
+            'category_id' => $categoryId, 'name' => 'Inativo', 'description' => 'x', 'price' => '1.00', 'stock' => 0, 'is_active' => false,
+        ]);
+
+        $this->getJson('/api/admin/overview')->assertOk()
+            ->assertJsonPath('data.orders_count', 2)->assertJsonPath('data.products_count', 3)
+            ->assertJsonPath('data.active_products_count', 2)->assertJsonPath('data.paid_total', '30.00')
+            ->assertJsonPath('data.low_stock_count', 1)->assertJsonPath('data.low_stock.0.id', $this->product->id)
+            ->assertJsonCount(2, 'data.recent_orders')->assertJsonPath('data.recent_orders.0.status', 'pendente')
+            ->assertJsonPath('data.recent_orders.0.customer_name', 'Ana');
+    }
 }

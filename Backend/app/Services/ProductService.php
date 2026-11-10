@@ -44,7 +44,8 @@ class ProductService
 
     public function create(array $data): Product
     {
-        return Product::create($data);
+        // refresh: devolve os padrões do banco (stock, is_active) dos campos não enviados.
+        return Product::create($data)->refresh();
     }
 
     public function findPublicById(int $id): Product
@@ -62,7 +63,8 @@ class ProductService
 
     /**
      * Grava o arquivo no disco "public" (storage/app/public/products), que o
-     * Compose mantém em um volume, e aponta image_url para ele. A imagem enviada
+     * Compose mantém em um volume, e aponta image_url para ele, sem domínio,
+     * para a imagem continuar válida se o endereço do site mudar. A imagem enviada
      * anteriormente é apagada se nenhum produto a usa; URLs externas e fotos dos seeders não são tocadas.
      */
     public function updateImage(int $id, UploadedFile $file): Product
@@ -76,7 +78,7 @@ class ProductService
         abort_if($path === false, 500, 'Não foi possível gravar a imagem.');
 
         try {
-            $product->update(['image_url' => $disk->url($path)]);
+            $product->update(['image_url' => '/storage/'.$path]);
         } catch (\Throwable $exception) {
             $disk->delete($path);
             throw $exception;
@@ -92,9 +94,7 @@ class ProductService
 
     private function uploadedImagePath(?string $url): ?string
     {
-        $prefix = Storage::disk('public')->url('products/');
-
-        return $url !== null && str_starts_with($url, $prefix)
+        return $url !== null && str_starts_with($url, '/storage/products/')
             ? 'products/'.basename($url) : null;
     }
 
