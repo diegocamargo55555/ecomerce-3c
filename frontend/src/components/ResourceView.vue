@@ -38,6 +38,7 @@ const formError = ref("");
 const fieldErrors = ref({});
 const failedImages = ref(new Set());
 let loadVersion = 0;
+let originalForm = {};
 
 const fields = computed(() =>
   config.value.fields.filter((field) => !editing.value || !field.createOnly),
@@ -190,6 +191,7 @@ function openForm(row = null) {
     const key = "users_id" in form ? "users_id" : "user_id";
     form[key] = props.user.id;
   }
+  originalForm = { ...form };
   formError.value = "";
   fieldErrors.value = {};
   modalOpen.value = true;
@@ -223,6 +225,7 @@ async function save() {
   for (const field of fields.value) {
     if (field.type === "file") continue;
     const value = form[field.key];
+    if (editing.value && value === originalForm[field.key]) continue;
     if (editing.value && field.optionalOnEdit && !value) continue;
     payload[field.key] =
       value === "" && !field.required
@@ -245,6 +248,7 @@ async function save() {
         body: payload,
       }),
     );
+    originalForm = { ...form };
     if (image) {
       // O produto já foi salvo: se o upload falhar, o formulário passa a
       // editá-lo, e uma nova tentativa não cria um produto duplicado.
@@ -253,11 +257,7 @@ async function save() {
       await uploadProductImage(saved.id, image);
     }
     if (props.resourceKey === "users" && id === props.user.id)
-      emit("user-updated", {
-        ...props.user,
-        name: payload.name,
-        email: payload.email,
-      });
+      emit("user-updated", saved);
     modalOpen.value = false;
     emit("notify", `Registro ${id ? "atualizado" : "criado"} com sucesso.`);
     await load();
