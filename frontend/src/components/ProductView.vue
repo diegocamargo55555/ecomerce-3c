@@ -1,65 +1,24 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { addToCart, getProduct } from "../api/http.js";
-import { currency } from "../resources.js";
+import { currency } from "../manipulacao/formatacao.js";
 import Icon from "./Icon.vue";
+import { useProduct } from "../manipulacao/useProduct.js";
 
 const props = defineProps({ productId: String });
 const emit = defineEmits(["cart-updated"]);
-const product = ref(null);
-const loading = ref(true);
-const error = ref("");
-const notFound = ref(false);
-const failedImage = ref(false);
-const quantity = ref(1);
-const saving = ref(false);
-const cartError = ref("");
-const added = ref("");
-let active = true;
-onBeforeUnmount(() => { active = false; });
-const validQuantity = computed(() => Number.isInteger(quantity.value)
-  && quantity.value >= 1 && quantity.value <= product.value?.stock);
-
-async function load() {
-  loading.value = true;
-  error.value = "";
-  notFound.value = false;
-  failedImage.value = false;
-  cartError.value = "";
-  added.value = "";
-  quantity.value = 1;
-  try {
-    const result = await getProduct(props.productId);
-    if (!active) return;
-    product.value = result;
-    document.title = `${product.value.name} · 3C Commerce`;
-  } catch (failure) {
-    notFound.value = failure.status === 404;
-    error.value = failure.message;
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function add() {
-  if (!validQuantity.value || saving.value) return;
-  saving.value = true;
-  cartError.value = "";
-  added.value = "";
-  try {
-    const item = await addToCart(product.value.id, quantity.value);
-    emit("cart-updated");
-    added.value = `Adicionado ao carrinho. Você tem ${item.quantity} unidade(s) deste produto.`;
-  } catch (failure) {
-    cartError.value = failure.status === 404
-      ? "Este produto não está mais disponível. Atualize os detalhes."
-      : failure.errors?.quantity?.[0] || failure.message;
-  } finally {
-    saving.value = false;
-  }
-}
-
-watch(() => props.productId, load, { immediate: true });
+const {
+  product,
+  loading,
+  error,
+  notFound,
+  failedImage,
+  quantity,
+  saving,
+  cartError,
+  added,
+  validQuantity,
+  load,
+  add,
+} = useProduct(props, emit);
 </script>
 
 <template>

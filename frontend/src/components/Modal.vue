@@ -1,15 +1,12 @@
 <script setup>
-import { onMounted, onBeforeUnmount, ref } from "vue";
 import Icon from "./Icon.vue";
+import { useModal } from "../manipulacao/useModal.js";
+
 defineProps({ title: String, busy: Boolean, small: Boolean });
 const emit = defineEmits(["close"]);
-const dialog = ref(null);
-const previousFocus = document.activeElement;
-onMounted(() => dialog.value.showModal());
-onBeforeUnmount(() => {
-  dialog.value?.close();
-  previousFocus?.focus();
-});
+const {
+  dialog,
+} = useModal(emit);
 </script>
 
 <template>

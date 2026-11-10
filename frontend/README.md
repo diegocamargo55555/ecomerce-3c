@@ -48,6 +48,68 @@ npm run build
 - Loading, estados vazios, erros por campo, nova tentativa e confirmação de exclusão.
 - Layout responsivo, navegação por teclado e formulários em diálogos nativos.
 
+## Organização do código
+
+O JavaScript de comportamento está separado em três pastas dentro de `src/`:
+
+```text
+src/
+├── validacoes/
+│   ├── arquivos.js        # Limite de tamanho do arquivo escolhido
+│   ├── produtos.js        # Disponibilidade e quantidade permitida
+│   ├── respostas.js       # Estrutura das listas e da paginação da API
+│   └── rotas.js           # Reconhecimento das rotas da aplicação
+├── requisicoes/
+│   ├── auth/             # Login, cadastro, sessão atual e logout
+│   ├── http.js           # Fetch, cookies, CSRF, timeout e erros HTTP
+│   ├── carrinho.js
+│   ├── checkout.js
+│   ├── pedidos.js
+│   ├── perfil.js
+│   ├── produtos.js
+│   ├── recursos.js       # Listagem, criação, edição e exclusão administrativa
+│   └── visaoGeral.js
+└── manipulacao/
+    ├── formatacao.js     # Moeda, datas, iniciais, relacionamentos e status
+    ├── useApp.js         # Navegação, sessão, menu e notificações
+    ├── useAuth.js
+    ├── useCart.js
+    ├── useCatalog.js
+    ├── useCheckout.js
+    ├── useModal.js
+    ├── useMyOrders.js
+    ├── useOrder.js
+    ├── useOverview.js
+    ├── useProduct.js
+    ├── useProfile.js
+    └── useResource.js
+```
+
+- **Validações:** verificam os dados e devolvem `true` ou `false`. Por exemplo, `isValidQuantity(quantity, product)` confere se a quantidade é inteira, positiva e cabe no estoque. Essas funções podem ser reutilizadas e não alteram o estado da tela. Os atributos de validação dos formulários (`required`, `min`, `max`, etc.) continuam definidos nos templates e na configuração dos campos em `resources.js`; a API mantém a validação final.
+- **Requisições:** sabem qual endpoint chamar, qual método usar e quais dados enviar. Toda chamada passa por `http.js`, que mantém o tratamento de sessão, CSRF e falhas. As respostas continuam com os mesmos formatos esperados pelas telas.
+- **Manipulação:** reúne o estado reativo e as ações de cada tela: abrir formulários, aplicar filtros, exibir carregamento, chamar as requisições e atualizar os dados apresentados. As funções `use...` são composições do Vue, chamadas no `<script setup>` do componente. Cada chamada cria seu próprio estado, para que formulários e erros não sejam compartilhados entre instâncias.
+
+Os componentes `.vue` importam essas composições e recebem as variáveis e funções utilizadas no template. Continuam responsáveis pelo HTML, pelos estilos, pelas propriedades e pelos eventos. `Icon.vue` contém apenas a definição visual dos ícones. `resources.js` concentra a configuração dos recursos, campos, colunas e navegação.
+
+### Variáveis preservadas
+
+Os nomes das variáveis foram mantidos. Suas declarações de estado agora ficam na composição da tela correspondente e os componentes recebem as mesmas referências reativas.
+
+| Variável | Para que serve |
+| --- | --- |
+| `form` | Guarda os valores preenchidos no formulário. |
+| `originalForm` | Guarda os valores anteriores para enviar somente os campos alterados na edição administrativa. |
+| `loading`, `starting` | Indicam que os dados ou a sessão inicial estão sendo carregados. |
+| `busy`, `saving`, `placing` | Indicam que uma ação está em andamento e controlam os botões. |
+| `error`, `formError`, `loadError` | Guardam mensagens gerais de falha. |
+| `errors`, `fieldErrors` | Guardam mensagens de erro por campo retornadas pela API. |
+| `search`, `category`, `filter`, `sort`, `page` | Controlam busca, filtros, ordenação e paginação. |
+| `rows`, `products`, `cart`, `order` | Guardam os dados exibidos na tela correspondente. |
+| `editing`, `deleting`, `modalOpen` | Controlam o registro selecionado e a abertura dos diálogos. |
+| `user`, `notice`, `toast` | Guardam a conta atual e as mensagens apresentadas ao usuário. |
+
+Por exemplo, ao adicionar um produto ao carrinho: `ProductView.vue` chama `add()` de `manipulacao/useProduct.js`; essa ação consulta `validacoes/produtos.js`, chama `addToCart()` de `requisicoes/carrinho.js` e atualiza `saving`, `cartError` e `added`. A separação permite encontrar e alterar cada responsabilidade sem misturar a regra de quantidade, o endereço da API e a atualização da interface.
+
 ## Integração existente
 
 O cliente usa exclusivamente as rotas existentes:

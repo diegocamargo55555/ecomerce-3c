@@ -1,51 +1,18 @@
 <script setup>
-import { reactive, ref, watch } from "vue";
-import { login } from "../api/auth/login.js";
-import { register } from "../api/auth/register.js";
-import { resourceData } from "../api/http.js";
 import Icon from "./Icon.vue";
+import { useAuth } from "../manipulacao/useAuth.js";
 
 defineProps({ notice: String });
 const emit = defineEmits(["authenticated"]);
-const mode = ref("login");
-const busy = ref(false);
-const showPassword = ref(false);
-const error = ref("");
-const errors = ref({});
-const form = reactive({
-  name: "",
-  email: "",
-  password: "",
-  password_confirmation: "",
-});
-watch(mode, () => {
-  error.value = "";
-  errors.value = {};
-  form.password = "";
-  form.password_confirmation = "";
-});
-
-async function submit() {
-  busy.value = true;
-  error.value = "";
-  errors.value = {};
-  try {
-    const payload =
-      mode.value === "login"
-        ? { email: form.email.trim(), password: form.password }
-        : { ...form, name: form.name.trim(), email: form.email.trim() };
-    const response = await (mode.value === "login" ? login(payload) : register(payload));
-    const user = resourceData(response);
-    form.password = "";
-    form.password_confirmation = "";
-    emit("authenticated", user, response.cart_warnings || []);
-  } catch (failure) {
-    error.value = failure.message;
-    errors.value = failure.errors || {};
-  } finally {
-    busy.value = false;
-  }
-}
+const {
+  mode,
+  busy,
+  showPassword,
+  error,
+  errors,
+  form,
+  submit,
+} = useAuth(emit);
 </script>
 
 <template>

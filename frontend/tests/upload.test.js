@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { uploadProductImage, updateCartItem } from "../src/api/http.js";
+import { uploadProductImage } from "../src/requisicoes/produtos.js";
+import { updateCartItem } from "../src/requisicoes/carrinho.js";
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => { globalThis.document = { cookie: "XSRF-TOKEN=token" }; });

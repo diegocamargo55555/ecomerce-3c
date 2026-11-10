@@ -1,41 +1,19 @@
 <script setup>
-import { reactive, ref, watch } from "vue";
-import { removeCartItem, updateCartItem } from "../api/http.js";
-import { currency } from "../resources.js";
+import { currency } from "../manipulacao/formatacao.js";
 import Icon from "./Icon.vue";
+import { useCart } from "../manipulacao/useCart.js";
 
 const props = defineProps({ cart: Object, loading: Boolean, error: String, user: Object });
 const emit = defineEmits(["refresh", "updated"]);
-const quantities = reactive({});
-const busy = ref(false);
-const itemError = ref("");
-const errorItem = ref(null);
-const notice = ref("");
-const failedImages = ref(new Set());
-watch(() => props.cart, (cart) => {
-  Object.keys(quantities).forEach((key) => delete quantities[key]);
-  for (const item of cart?.items || []) quantities[item.id] = item.quantity;
-}, { immediate: true });
-
-async function change(item, remove = false) {
-  if (busy.value) return;
-  busy.value = true;
-  itemError.value = "";
-  errorItem.value = item.id;
-  notice.value = "";
-  try {
-    const cart = remove
-      ? await removeCartItem(item.id)
-      : await updateCartItem(item.id, quantities[item.id]);
-    emit("updated", cart);
-    notice.value = remove || quantities[item.id] === 0 ? "Produto removido do carrinho." : "Quantidade atualizada.";
-  } catch (failure) {
-    itemError.value = failure.errors?.quantity?.[0] || failure.message;
-    emit("refresh");
-  } finally {
-    busy.value = false;
-  }
-}
+const {
+  quantities,
+  busy,
+  itemError,
+  errorItem,
+  notice,
+  failedImages,
+  change,
+} = useCart(props, emit);
 </script>
 
 <template>

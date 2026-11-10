@@ -1,25 +1,15 @@
 <script setup>
-import { onMounted, ref } from "vue";
-import { getMyOrders } from "../api/http.js";
-import { currency, date, resources } from "../resources.js";
+import { currency, date } from "../manipulacao/formatacao.js";
 import Icon from "./Icon.vue";
+import { useMyOrders } from "../manipulacao/useMyOrders.js";
 
-const orders = ref([]);
-const loading = ref(true);
-const error = ref("");
-const statusNames = Object.fromEntries(resources.orders.fields.find(field => field.key === "status").options);
-async function load() {
-  loading.value = true;
-  error.value = "";
-  try {
-    orders.value = await getMyOrders();
-  } catch (failure) {
-    error.value = failure.message;
-  } finally {
-    loading.value = false;
-  }
-}
-onMounted(load);
+const {
+  orders,
+  loading,
+  error,
+  statusNames,
+  load,
+} = useMyOrders();
 </script>
 
 <template>
