@@ -63,13 +63,14 @@ class ProductService
     /**
      * Grava o arquivo no disco "public" (storage/app/public/products), que o
      * Compose mantém em um volume, e aponta image_url para ele. A imagem enviada
-     * anteriormente é apagada; URLs externas e fotos dos seeders não são tocadas.
+     * anteriormente é apagada se nenhum produto a usa; URLs externas e fotos dos seeders não são tocadas.
      */
     public function updateImage(int $id, UploadedFile $file): Product
     {
         $product = Product::findOrFail($id);
         $disk = Storage::disk('public');
-        $previous = $this->uploadedImagePath($product->image_url);
+        $previousUrl = $product->image_url;
+        $previous = $this->uploadedImagePath($previousUrl);
 
         $path = $file->store('products', 'public');
         abort_if($path === false, 500, 'Não foi possível gravar a imagem.');
@@ -81,7 +82,8 @@ class ProductService
             throw $exception;
         }
 
-        if ($previous !== null && $previous !== $path) {
+        if ($previous !== null && $previous !== $path
+            && ! Product::withTrashed()->where('image_url', $previousUrl)->exists()) {
             $disk->delete($previous);
         }
 

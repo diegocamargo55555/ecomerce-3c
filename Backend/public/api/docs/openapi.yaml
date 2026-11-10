@@ -333,7 +333,8 @@ paths:
         **Admin.** Recebe o arquivo em `multipart/form-data`, grava em
         `storage/app/public/products` (volume `product_images` do Compose) e aponta
         `image_url` para `/storage/products/<nome>`, servido publicamente. O nome do
-        arquivo é gerado pelo servidor. A imagem enviada anteriormente é apagada;
+        arquivo é gerado pelo servidor. A imagem enviada anteriormente só é apagada
+        quando nenhum outro produto, inclusive excluído logicamente, usa a mesma URL;
         URLs externas e fotos dos seeders não são tocadas.
 
         Aceita JPG, PNG ou WebP de até 2 MB; o tipo é verificado pelo conteúdo do

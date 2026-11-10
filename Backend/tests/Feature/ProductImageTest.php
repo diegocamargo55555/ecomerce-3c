@@ -84,6 +84,40 @@ class ProductImageTest extends TestCase
         $this->assertNotSame($first, $files[0]);
     }
 
+    public function test_replacing_a_shared_image_preserves_it_until_the_last_product_replaces_it(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $url = $this->upload($this->png())->assertOk()->json('data.image_url');
+        $path = Storage::disk('public')->allFiles()[0];
+        $other = $this->product->fresh()->replicate();
+        $other->save();
+
+        $this->upload($this->png('nova.png'))->assertOk();
+
+        Storage::disk('public')->assertExists($path);
+        $this->getJson("/api/products/{$other->id}")->assertOk()->assertJsonPath('data.image_url', $url);
+
+        $this->upload($this->png('outra.png'), $other->id)->assertOk();
+
+        Storage::disk('public')->assertMissing($path);
+        $this->assertCount(2, Storage::disk('public')->allFiles());
+    }
+
+    public function test_replacing_an_image_preserves_a_soft_deleted_products_reference(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $url = $this->upload($this->png())->assertOk()->json('data.image_url');
+        $path = Storage::disk('public')->allFiles()[0];
+        $other = $this->product->fresh()->replicate();
+        $other->save();
+        $other->delete();
+
+        $this->upload($this->png('nova.png'))->assertOk();
+
+        Storage::disk('public')->assertExists($path);
+        $this->assertSame($url, $other->fresh()->image_url);
+    }
+
     public function test_upload_validates_the_file_and_the_product(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));
