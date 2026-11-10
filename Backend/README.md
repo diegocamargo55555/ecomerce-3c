@@ -21,16 +21,6 @@ docker compose exec php php artisan db:seed
 
 Os seeders podem ser repetidos: criam exemplos ausentes e preservam dados existentes, inclusive senhas, preços, estoques e exclusões lógicas. Aplique as migrations antes da carga. Os cinco status de pedidos estão definidos na migration original de `orders`; bancos antigos precisam ter a coluna compatível antes da carga, pois editar essa migration não atualiza tabelas existentes. A carga completa é transacional. Para testar os dados e os totais sem alterar a loja, execute `docker compose exec php php artisan test --filter=DatabaseSeederTest`; o teste usa SQLite em memória.
 
-### Fotos em produtos já cadastrados
-
-A migration `2026_11_08_230858_fill_missing_product_images` preenche as fotos ausentes dos oito produtos de Warhammer 40.000, associando seus nomes aos arquivos locais. Ela preserva fotos já cadastradas, preços, estoque e relacionamentos. Para aplicá-la a uma base existente:
-
-```sh
-docker compose exec php php artisan migrate --path=database/migrations/2026_11_08_230858_fill_missing_product_images.php
-```
-
-O rollback mantém as fotos para não remover imagens válidas. O teste `DatabaseSeederTest` verifica os cenários de demonstração, a existência dos arquivos de imagens, os totais de pedidos e a repetição segura dos seeders em SQLite em memória.
-
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

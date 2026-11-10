@@ -25,40 +25,30 @@ class ProductSeeder extends Seeder
             ['category' => 'pintura-e-acessorios', 'name' => 'Citadel Starter Brush', 'image' => 'citadel-starter-brush.jpg', 'description' => 'Pincel Citadel para começar a pintar suas miniaturas de Warhammer 40.000.', 'price' => '49.90', 'stock' => 3, 'is_active' => true],
         ];
 
-        $baseProducts = array_column($products, null, 'name');
-        // shortcut: os kits reutilizam a foto de uma unidade, usar fotos próprias ao vender kits reais.
-        foreach ([
-            ['Space Marines: Intercessors', 2, '649.90', 6],
-            ['Space Marines: Intercessors', 3, '949.90', 3],
-            ['Space Marines: Intercessors', 4, '1249.90', 2],
-            ['Adepta Sororitas: Battle Sisters Squad', 2, '749.90', 4],
-            ['Adepta Sororitas: Battle Sisters Squad', 3, '1099.90', 2],
-            ['Adepta Sororitas: Battle Sisters Squad', 4, '1449.90', 1],
-            ['Chaos Space Marines: Legionaries', 2, '699.90', 5],
-            ['Chaos Space Marines: Legionaries', 3, '999.90', 3],
-            ['Chaos Space Marines: Legionaries', 4, '1349.90', 1],
-            ['Death Guard: Plague Marines', 2, '599.90', 0],
-            ['Death Guard: Plague Marines', 3, '899.90', 2],
-            ['Necrons: Warriors', 2, '549.90', 8],
-            ['Necrons: Warriors', 3, '799.90', 4],
-            ['Necrons: Warriors', 4, '1049.90', 2],
-            ['Tyranids: Termagants', 2, '479.90', 10],
-            ['Tyranids: Termagants', 3, '699.90', 6],
-            ['Tyranids: Termagants', 4, '919.90', 3],
-            ['Citadel Colour: Macragge Blue', 2, '64.90', 25],
-            ['Citadel Colour: Macragge Blue', 3, '94.90', 15],
-            ['Citadel Colour: Macragge Blue', 4, '124.90', 8],
-            ['Citadel Starter Brush', 2, '89.90', 12],
-            ['Citadel Starter Brush', 3, '129.90', 6],
-        ] as [$name, $quantity, $price, $stock]) {
-            $products[] = array_replace($baseProducts[$name], [
-                'name' => "Kit {$quantity} x {$name}",
-                'description' => "Kit de demonstração com {$quantity} unidades de {$name}. A foto ilustra uma unidade; miniaturas para montar e pintar, quando aplicável.",
-                'price' => $price,
-                'stock' => $stock,
-                'is_active' => true,
-            ]);
-        }
+        array_push($products,
+            ['category' => 'imperium', 'name' => 'Space Marines: Terminator Assault Squad', 'image' => 'space-marines-terminator-assault-squad.jpg', 'description' => 'Esquadrão de Terminators de assalto com martelos e garras, a infantaria de elite mais resistente dos Space Marines.', 'price' => '399.90', 'stock' => 7, 'is_active' => true],
+            ['category' => 'imperium', 'name' => 'Space Marines: Redemptor Dreadnought', 'image' => 'space-marines-redemptor-dreadnought.jpg', 'description' => 'Caminhante de combate pesado dos Space Marines, armado para dar apoio de fogo à linha de frente.', 'price' => '449.90', 'stock' => 5, 'is_active' => true],
+            ['category' => 'imperium', 'name' => 'Astra Militarum: Cadian Shock Troops', 'image' => 'cadian-shock-troops.jpg', 'description' => 'Soldados de infantaria da Guarda Imperial, a base numerosa de qualquer exército do Astra Militarum.', 'price' => '329.90', 'stock' => 14, 'is_active' => true],
+            ['category' => 'imperium', 'name' => 'Adeptus Custodes: Custodian Guard Sodality', 'image' => 'custodian-guard-sodality.jpg', 'description' => 'Guardiões dourados do Imperador, poucos em número e devastadores em combate.', 'price' => '379.90', 'stock' => 6, 'is_active' => true],
+            ['category' => 'imperium', 'name' => 'Adeptus Mechanicus: Skitarii', 'image' => 'adeptus-mechanicus-skitarii.jpg', 'description' => 'Soldados ciborgues do Culto Mechanicus, montáveis como Rangers ou Vanguard.', 'price' => '349.90', 'stock' => 9, 'is_active' => true],
+            ['category' => 'imperium', 'name' => 'Grey Knights: Strike Squad', 'image' => 'grey-knights-strike-squad.jpg', 'description' => 'Caçadores de demônios dos Grey Knights, guerreiros psíquicos em armadura prateada.', 'price' => '339.90', 'stock' => 4, 'is_active' => true],
+            ['category' => 'caos', 'name' => 'Chaos Space Marines: Chaos Terminators', 'image' => 'chaos-space-marines-terminators.jpg', 'description' => 'Veteranos traidores em armadura Terminator, a ponta de lança das legiões do Caos.', 'price' => '399.90', 'stock' => 5, 'is_active' => true],
+            ['category' => 'caos', 'name' => 'World Eaters: Khorne Berzerkers', 'image' => 'world-eaters-khorne-berzerkers.jpg', 'description' => 'Guerreiros enlouquecidos devotos de Khorne, especialistas em combate corpo a corpo.', 'price' => '369.90', 'stock' => 8, 'is_active' => true],
+            ['category' => 'caos', 'name' => 'Thousand Sons: Rubric Marines', 'image' => 'thousand-sons-rubric-marines.jpg', 'description' => 'Armaduras animadas por feitiçaria a serviço de Tzeentch, lideradas por um feiticeiro aspirante.', 'price' => '389.90', 'stock' => 3, 'is_active' => true],
+            ['category' => 'caos', 'name' => 'Chaos Space Marines: Forgefiend', 'image' => 'chaos-space-marines-forgefiend.jpg', 'description' => 'Máquina demoníaca quadrúpede que despeja fogo pesado sobre o inimigo.', 'price' => '279.90', 'stock' => 11, 'is_active' => true],
+            ['category' => 'caos', 'name' => 'Death Guard: Poxwalkers', 'image' => 'death-guard-poxwalkers.jpg', 'description' => 'Horda de mortos-vivos infectados que avança à frente da Death Guard.', 'price' => '249.90', 'stock' => 0, 'is_active' => true],
+            ['category' => 'xenos', 'name' => 'Orks: Boyz', 'image' => 'orks-boyz.jpg', 'description' => 'Bando de guerreiros Orks, barulhentos e numerosos, o coração de qualquer Waaagh!', 'price' => '289.90', 'stock' => 16, 'is_active' => true],
+            ['category' => 'xenos', 'name' => 'Aeldari: Guardians', 'image' => 'aeldari-guardians.jpg', 'description' => 'Milícia cidadã dos mundos-nave Aeldari, com plataforma de arma pesada.', 'price' => '319.90', 'stock' => 7, 'is_active' => true],
+            ['category' => 'xenos', 'name' => "T'au Empire: Fire Warriors", 'image' => 'tau-fire-warriors.jpg', 'description' => "Infantaria da casta do fogo do Império T'au, com rifles de pulso de longo alcance.", 'price' => '339.90', 'stock' => 10, 'is_active' => true],
+            ['category' => 'xenos', 'name' => 'Drukhari: Kabalite Warriors', 'image' => 'drukhari-kabalite-warriors.jpg', 'description' => 'Corsários cruéis de Commorragh, rápidos e armados com rifles de estilhaços.', 'price' => '299.90', 'stock' => 6, 'is_active' => true],
+            ['category' => 'xenos', 'name' => 'Genestealer Cults: Atalan Jackals', 'image' => 'genestealer-cults-atalan-jackals.jpg', 'description' => 'Batedores do culto em motos e quadriciclos, rápidos para flanquear o inimigo.', 'price' => '309.90', 'stock' => 5, 'is_active' => true],
+            ['category' => 'xenos', 'name' => 'Necrons: Immortals', 'image' => 'necron-immortals.jpg', 'description' => 'Tropas de choque Necrons, mais resistentes e mais bem armadas que os Warriors.', 'price' => '329.90', 'stock' => 8, 'is_active' => true],
+            ['category' => 'xenos', 'name' => 'Tyranids: Hormagaunts', 'image' => 'tyranid-hormagaunts.jpg', 'description' => 'Predadores velozes do enxame Tyranid, feitos para alcançar o inimigo em um salto.', 'price' => '259.90', 'stock' => 13, 'is_active' => true],
+            ['category' => 'pintura-e-acessorios', 'name' => 'Citadel Colour: Mephiston Red', 'image' => 'citadel-mephiston-red.jpg', 'description' => 'Tinta base vermelha da linha Citadel Colour, de alta cobertura.', 'price' => '34.90', 'stock' => 40, 'is_active' => true],
+            ['category' => 'pintura-e-acessorios', 'name' => 'Citadel Colour: Nuln Oil', 'image' => 'citadel-nuln-oil.jpg', 'description' => 'Tinta shade escura da linha Citadel Colour para sombrear recessos e metais.', 'price' => '44.90', 'stock' => 30, 'is_active' => true],
+            ['category' => 'pintura-e-acessorios', 'name' => 'Citadel Colour Spray Stick', 'image' => 'citadel-colour-spray-stick.jpg', 'description' => 'Suporte para prender várias miniaturas e aplicar primer em spray de uma só vez.', 'price' => '129.90', 'stock' => 9, 'is_active' => true],
+            ['category' => 'imperium', 'name' => 'Space Marines: Eradicator Squad with Heavy Bolters', 'image' => 'space-marines-eradicators-heavy-bolters.jpg', 'description' => 'Três Space Marines em armadura Gravis armados com bolters pesados, para apoio de fogo de curto alcance.', 'price' => '319.90', 'stock' => 2, 'is_active' => true],
+        );
 
         foreach ($products as $product) {
             Product::withTrashed()->firstOrCreate(['name' => $product['name']], [

@@ -323,7 +323,17 @@ onMounted(() => { load(); refreshCart(); });
             class="category-card"
             @click="chooseCategory(item.id)"
           >
-            <span class="category-icon"><Icon name="tag" :size="27" /></span>
+            <img
+              v-if="item.image_url && !failedImages.has('c' + item.id)"
+              class="category-image"
+              :src="item.image_url"
+              alt=""
+              loading="lazy"
+              @error="failedImages.add('c' + item.id)"
+            />
+            <span v-else class="category-icon"
+              ><Icon name="tag" :size="27"
+            /></span>
             <strong>{{ item.name }}</strong
             ><span>{{
               item.description || "Explore os produtos desta categoria."
@@ -926,6 +936,13 @@ onMounted(() => { load(); refreshCart(); });
   background: #eaf3fc;
   color: var(--primary);
   border-radius: 10px;
+}
+.category-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  background: #f8fafc;
+  border-radius: 8px;
 }
 .category-card > strong {
   font-size: 19px;

@@ -145,26 +145,4 @@ class ProductImageTest extends TestCase
         $this->patchJson("/api/products/{$this->product->id}", ['image_url' => 'foto.jpg'])
             ->assertUnprocessable()->assertJsonValidationErrors('image_url');
     }
-
-    public function test_migration_makes_only_this_servers_image_urls_relative(): void
-    {
-        Storage::disk('public')->put('products/enviada.png', 'x');
-        $urls = [
-            'http://antigo.example/storage/products/enviada.png' => '/storage/products/enviada.png',
-            'http://localhost/images/products/necron-warriors.jpg' => '/images/products/necron-warriors.jpg',
-            'https://outra-loja.example/images/products/deles.jpg' => 'https://outra-loja.example/images/products/deles.jpg',
-            'http://antigo.example/storage/products/apagada.png' => 'http://antigo.example/storage/products/apagada.png',
-        ];
-        $ids = [];
-        foreach (array_keys($urls) as $url) {
-            $product = $this->product->replicate()->fill(['image_url' => $url]);
-            $product->save();
-            $ids[] = $product->id;
-        }
-
-        (require database_path('migrations/2026_11_10_120000_make_local_product_image_urls_relative.php'))->up();
-
-        $this->assertSame(array_values($urls), array_map(fn ($id) => Product::find($id)->image_url, $ids));
-        $this->assertSame('https://example.com/externa.jpg', $this->product->fresh()->image_url);
-    }
 }

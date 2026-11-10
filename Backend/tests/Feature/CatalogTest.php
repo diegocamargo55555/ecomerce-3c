@@ -130,4 +130,16 @@ class CatalogTest extends TestCase
             ->getJson('/api/admin/products')->assertOk()->assertJsonCount(4, 'data');
         $this->getJson('/api/products')->assertJsonPath('meta.total', 3);
     }
+
+    public function test_category_list_shows_the_photo_of_its_first_active_product(): void
+    {
+        // Inativo e excluído não emprestam foto; categoria sem foto fica nula.
+        Product::where('name', 'Marine inativo')->update(['image_url' => '/images/products/inativo.jpg']);
+        Product::withTrashed()->where('name', 'Marine excluído')->update(['image_url' => '/images/products/excluido.jpg']);
+        Product::where('name', 'Marine barato')->update(['image_url' => '/images/products/barato.jpg']);
+
+        $this->getJson('/api/categories')->assertOk()
+            ->assertJsonPath('data.0.image_url', '/images/products/barato.jpg')
+            ->assertJsonPath('data.1.image_url', null);
+    }
 }

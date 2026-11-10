@@ -27,8 +27,8 @@ return new class extends Migration
             // price decimal(10,2) NN
             $table->decimal('price', 10, 2);
 
-            // stock int NN (com valor por defeito opcional de 0)
-            $table->integer('stock')->default(0);
+            // stock int unsigned NN (com valor por defeito opcional de 0)
+            $table->unsignedInteger('stock')->default(0); // rede de segurança: o MySQL recusa venda que deixaria o estoque negativo
 
             // image_url varchar(255) (Nullable, pois não tem a marcação NN)
             $table->string('image_url', 255)->nullable();
