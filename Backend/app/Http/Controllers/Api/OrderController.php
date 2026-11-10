@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
+use App\Http\Requests\UpdateOrderRequest;
 use App\Http\Resources\OrderResource;
 use App\Services\OrderService;
 use Illuminate\Http\Request;
@@ -43,10 +44,8 @@ class OrderController extends Controller
         return new OrderResource($this->orderService->findForUser($id, $request->user()));
     }
 
-    public function updateStatus(Request $request, int $id)
+    public function updateStatus(UpdateOrderRequest $request, int $id)
     {
-        $data = $request->validate(['status' => ['required', 'string', 'in:pendente,pago,enviado,entregue,cancelado']]);
-
-        return new OrderResource($this->orderService->updateStatus($id, $data['status']));
+        return new OrderResource($this->orderService->updateStatus($id, $request->validated('status')));
     }
 }

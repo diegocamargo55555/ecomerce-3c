@@ -64,7 +64,7 @@ tags:
   - name: Admin · Catálogo
     description: Gestão de produtos e categorias. Requer papel `admin`.
   - name: Admin · Pedidos
-    description: Consulta de pedidos, itens e pagamentos e avanço de status. Requer papel `admin`.
+    description: Consulta de pedidos, ajuste de itens pendentes, gestão de pagamentos e avanço de status. Requer papel `admin`.
   - name: Admin · Usuários
     description: CRUD de usuários. Requer papel `admin`.
   - name: Admin · Endereços
@@ -724,7 +724,7 @@ paths:
     get:
       tags: [Admin · Pedidos]
       summary: Lista todos os itens de pedidos
-      description: "**Admin.** Somente leitura, sem paginação."
+      description: "**Admin.** Sem paginação."
       responses:
         "200":
           description: Itens.
@@ -738,6 +738,42 @@ paths:
                     items: { $ref: "#/components/schemas/OrderItem" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+    post:
+      tags: [Admin · Pedidos]
+      summary: Acrescenta um item a um pedido pendente
+      description: |
+        **Admin.** Usa nome e preço atuais do produto, reserva estoque e recalcula
+        subtotal, total e pagamento na mesma transação. Preserva o frete.
+        Produto indisponível, estoque insuficiente ou limite monetário → 422;
+        pedido fora de pendente ou pagamento já processado → 409.
+        `product_name`, `unit_price` e `subtotal` enviados são ignorados.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id, product_id, quantity]
+              properties:
+                order_id: { type: integer, minimum: 1 }
+                product_id: { type: integer, minimum: 1 }
+                quantity: { type: integer, minimum: 1, maximum: 2147483647 }
+      responses:
+        "201": &adminOrderItemData
+          description: Item do pedido.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/OrderItem" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
 
   /api/order-items/{order_item}:
     parameters:
@@ -759,11 +795,39 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+    put: &adminOrderItemUpdate
+      tags: [Admin · Pedidos]
+      summary: Altera a quantidade de um item de pedido pendente
+      description: |
+        **Admin.** Mantém produto, nome e preço congelados. Reserva ou devolve a
+        diferença de estoque e recalcula pedido e pagamento na mesma transação.
+        Quantidade mínima: 1. Produtos inativos ou excluídos permitem redução,
+        mas não aumento. Pedido ou pagamento já processado → 409.
+        Outros campos enviados são ignorados.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 1, maximum: 2147483647 }
+      responses:
+        "200": *adminOrderItemData
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    patch: *adminOrderItemUpdate
+
   /api/payments:
     get:
       tags: [Admin · Pedidos]
       summary: Lista todos os pagamentos
-      description: "**Admin.** Somente leitura, sem paginação."
+      description: "**Admin.** Sem paginação."
       responses:
         "200":
           description: Pagamentos.
@@ -777,6 +841,39 @@ paths:
                     items: { $ref: "#/components/schemas/Payment" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+    post:
+      tags: [Admin · Pedidos]
+      summary: Cria o pagamento pendente que falta em um pedido
+      description: |
+        **Admin.** Somente pedido pendente sem pagamento. O checkout normal já
+        cria o pagamento; duplicidade ou pedido em outro estado → 409.
+        Valor vem do total do pedido; `amount` e `paid_at` enviados são ignorados.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id]
+              properties:
+                order_id: { type: integer, minimum: 1 }
+                status: { type: string, enum: [pendente], default: pendente }
+      responses:
+        "201": &adminPaymentData
+          description: Pagamento do pedido.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Payment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
 
   /api/payments/{payment}:
     parameters:
@@ -797,6 +894,34 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+    put: &adminPaymentUpdate
+      tags: [Admin · Pedidos]
+      summary: Confirma ou cancela um pagamento pendente
+      description: |
+        **Admin.** `pago` confirma o pagamento simulado pelo total do pedido e grava
+        a data atual; `cancelado` cancela o pedido e devolve o estoque dos itens.
+        Usa as mesmas transações do fluxo da conta. Repetições, retorno a pendente
+        e alterações de pagamentos já processados → 409. Não aceita mudança de
+        valor, pedido ou data: os demais campos enviados são ignorados.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pendente, pago, cancelado] }
+      responses:
+        "200": *adminPaymentData
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "419": { $ref: "#/components/responses/CsrfMismatch" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    patch: *adminPaymentUpdate
 
   /api/my/addresses:
     get:

@@ -24,9 +24,7 @@ class StorePaymentRequest extends FormRequest
     {
         return [
             'order_id' => ['required', 'integer', 'exists:orders,id'],
-            'status' => ['sometimes', 'required', 'string', 'in:pendente,pago,cancelado'],
-            'amount' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
-            'paid_at' => ['nullable', 'date'],
+            'status' => ['sometimes', 'required', 'string', 'in:pendente'],
         ];
     }
 }

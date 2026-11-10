@@ -23,12 +23,7 @@ class UpdateOrderItemRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'order_id' => ['sometimes', 'required', 'integer', 'exists:orders,id'],
-            'product_id' => ['sometimes', 'required', 'integer', 'exists:products,id'],
-            'product_name' => ['sometimes', 'required', 'string', 'max:255'],
-            'unit_price' => ['sometimes', 'required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
-            'quantity' => ['sometimes', 'required', 'integer', 'min:1'],
-            'subtotal' => ['sometimes', 'required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:2147483647'],
         ];
     }
 }

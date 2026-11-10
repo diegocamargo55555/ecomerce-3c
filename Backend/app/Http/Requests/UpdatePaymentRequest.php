@@ -23,10 +23,7 @@ class UpdatePaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'order_id' => ['sometimes', 'required', 'integer', 'exists:orders,id'],
-            'status' => ['sometimes', 'required', 'string', 'in:pendente,pago,cancelado'],
-            'amount' => ['sometimes', 'required', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
-            'paid_at' => ['sometimes', 'nullable', 'date'],
+            'status' => ['required', 'string', 'in:pendente,pago,cancelado'],
         ];
     }
 }

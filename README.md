@@ -138,7 +138,18 @@ A criação usa uma transação com bloqueio do carrinho, dos itens e dos produt
 
 A página `/#order/ID` mostra o pedido, seus itens congelados, endereço, frete e total. O dono encontra a ação **Confirmar pagamento simulado**. `POST /api/orders/{id}/pay` não recebe valor, dados de cartão ou gateway; em uma transação, usa o total gravado no pedido, registra a data/hora no pagamento e altera o pedido para pago. Uma segunda tentativa ou pedido fora de pendente retorna 409; outro usuário, inclusive admin de outro pedido, recebe 403. O pagamento não baixa estoque novamente. O dono e admins podem consultar o detalhe por `GET /api/orders/{id}`.
 
-Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. As antigas escritas manuais desses registros foram desabilitadas na API e na interface para preservar estoque, preços e pagamentos; envio, entrega e cancelamento usam ações próprias descritas abaixo. A unicidade de `payments.order_id` está definida na migration original de pagamentos; instalações novas já recebem o índice. Bases antigas sem ele precisam desse ajuste, pois editar uma migration já executada não altera o schema.
+Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. A API também permite as operações administrativas abaixo, usando os Requests de criação e atualização. Elas exigem sessão, CSRF e papel `admin`; o painel mantém as tabelas desses registros para consulta. A edição genérica e a exclusão de pedidos continuam indisponíveis; o status usa `UpdateOrderRequest` na rota própria.
+
+| Operação administrativa | Dados aceitos e comportamento |
+| --- | --- |
+| `POST /api/order-items` | `order_id`, `product_id`, `quantity`: acrescenta um item a pedido pendente, congela nome/preço atuais e reserva estoque. |
+| `PATCH/PUT /api/order-items/{id}` | `quantity`: altera a quantidade em pedido pendente, mantendo produto e preço congelados. Reserva ou devolve somente a diferença de estoque. |
+| `POST /api/payments` | `order_id`, com `status` opcional igual a `pendente`: cria o pagamento pendente de um pedido que ainda não possui pagamento, pelo total gravado no pedido. O checkout normal já cria esse registro. |
+| `PATCH/PUT /api/payments/{id}` | `status`: `pago` confirma o pagamento simulado; `cancelado` cancela o pedido pendente e devolve seu estoque. Repetições e outras transições retornam 409. |
+
+Valores financeiros, nomes e datas enviados nessas operações não substituem os dados calculados pelo servidor. A criação e edição de itens recalculam subtotal, total e valor do pagamento em decimal, preservando o frete. Somente produtos ativos e com estoque podem ser acrescentados ou ter a quantidade aumentada; reduzir a quantidade de um item indisponível continua permitido. Pedidos fora de pendente ou com pagamento já processado retornam 409. Falhas de estoque ou limite monetário retornam 422. Cada operação usa transação e bloqueios, compartilhando o bloqueio do pedido com pagamento e cancelamento; falhas desfazem todas as alterações. As criações retornam 201 e as edições 200, com o registro dentro de `data`. Exclusões de itens e pagamentos continuam indisponíveis.
+
+A unicidade de `payments.order_id` está definida na migration original de pagamentos; instalações novas já recebem o índice. Bases antigas sem ele precisam desse ajuste, pois editar uma migration já executada não altera o schema.
 
 Os testes de backend também verificam autorização, valores enviados pelo cliente, limites monetários, preços congelados, repetição do checkout e do pagamento e rollback em falhas depois da baixa de estoque ou da confirmação do pagamento. A verificação HTTP em banco MySQL temporário cobre cookies reais e concorrência entre sessões, sem modificar os dados de compras do banco principal.
 
