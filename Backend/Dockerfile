@@ -44,6 +44,7 @@ EOF
 ENV APP_ENV=production \
     APP_DEBUG=false \
     LOG_CHANNEL=stderr \
+    SESSION_SECURE_COOKIE=true \
     PORT=8000
 
 EXPOSE 8000

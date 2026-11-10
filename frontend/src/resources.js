@@ -25,18 +25,6 @@ const relation = (key, label, resource, extra = {}) => ({
   required: true,
   ...extra,
 });
-const status = {
-  key: "status",
-  label: "Status",
-  type: "select",
-  required: true,
-  default: "pendente",
-  options: [
-    ["pendente", "Pendente"],
-    ["pago", "Pago"],
-    ["cancelado", "Cancelado"],
-  ],
-};
 const col = (key, label, format) => ({ key, label, format });
 
 export const resources = {
@@ -113,23 +101,8 @@ export const resources = {
     singular: "pedido",
     icon: "orders",
     description: "Acompanhe cada pedido, do início ao fim.",
-    fields: [
-      relation("users_id", "Cliente", "users"),
-      relation("address_id", "Endereço", "addresses"),
-      {
-        ...status,
-        options: [
-          ["pendente", "Aguardando pagamento"],
-          ["pago", "Pago"],
-          ["enviado", "Enviado"],
-          ["entregue", "Entregue"],
-          ["cancelado", "Cancelado"],
-        ],
-      },
-      money("subtotal", "Subtotal (R$)"),
-      money("shipping_cost", "Frete (R$)"),
-      money("total", "Total (R$)"),
-    ],
+    // Somente consulta: os campos servem apenas para carregar os nomes usados nas colunas.
+    fields: [relation("users_id", "Cliente", "users")],
     columns: [
       col("id", "Pedido", "id"),
       col("users_id", "Cliente", "users"),
@@ -146,14 +119,7 @@ export const resources = {
     icon: "orders",
     description: "Consulte e organize os produtos de cada pedido.",
     parent: "orders",
-    fields: [
-      relation("order_id", "Pedido", "orders"),
-      relation("product_id", "Produto", "products"),
-      text("product_name", "Nome do produto no pedido", { wide: true }),
-      money("unit_price", "Preço unitário (R$)"),
-      number("quantity", "Quantidade", { min: 1, default: 1 }),
-      money("subtotal", "Subtotal (R$)"),
-    ],
+    fields: [],
     columns: [
       col("order_id", "Pedido", "id"),
       col("product_name", "Produto", "strong"),
@@ -203,17 +169,7 @@ export const resources = {
     singular: "pagamento",
     icon: "wallet",
     description: "Tenha clareza sobre os pagamentos registrados.",
-    fields: [
-      relation("order_id", "Pedido", "orders"),
-      status,
-      money("amount", "Valor (R$)"),
-      {
-        key: "paid_at",
-        label: "Data do pagamento",
-        type: "datetime-local",
-        required: false,
-      },
-    ],
+    fields: [],
     columns: [
       col("id", "Pagamento", "id"),
       col("order_id", "Pedido", "id"),

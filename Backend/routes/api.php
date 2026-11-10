@@ -62,7 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->whereNumber('order');
 
         Route::apiResource('payments', PaymentController::class)
-            ->except(['destroy'])
+            ->only(['index', 'show'])
             ->whereNumber('payment');
 
         Route::apiResource('categories', CategoryController::class)
@@ -80,7 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->whereNumber('cart_item');
 
         Route::apiResource('order-items', OrderItemController::class)
-            ->except(['destroy'])
+            ->only(['index', 'show'])
             ->whereNumber('order_item');
     });
 });

@@ -46,6 +46,10 @@ Abra **http://localhost/#login** para entrar ou cadastrar um cliente. Clientes s
 
 `proxy/default.conf` é a configuração do Nginx montada pelo Compose. `/api/`, `/sanctum/`, `/images/` e `/storage/` vão para `php:8000`; os demais caminhos vão para `frontend:5173`, incluindo o WebSocket do Vite. As portas 8000 e 5173 ficam apenas na rede dos containers. O proxy aguarda o PHP saudável e o frontend iniciado. O volume do MySQL e os arquivos de imagens/storage montados em `Backend/` são preservados ao recriar containers; não use `docker compose down -v` para atualizar.
 
+A imagem de produção (`Backend/Dockerfile`) define `SESSION_SECURE_COOKIE=true`: os cookies de sessão e CSRF só trafegam por HTTPS, então o site público precisa ser acessado por HTTPS. O Compose local mantém `false` para funcionar em http://localhost.
+
+O MySQL não publica porta no host; para consultas use `docker compose exec mysql mysql -u ecomerce -p ecomerce`.
+
 O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, Set-Cookie, Origin e Referer e encaminha Host e os cabeçalhos de proxy. O Laravel valida sessão e CSRF: antes de escrever, o cliente consulta `/sanctum/csrf-cookie`, envia cookies com `credentials: "include"` e o token em `X-XSRF-TOKEN`. Após 419, renova o CSRF e repete a chamada uma única vez. Senhas e tokens de autenticação não são guardados em localStorage.
 
 | Operação | Acesso |
@@ -138,16 +142,7 @@ A criação usa uma transação com bloqueio do carrinho, dos itens e dos produt
 
 A página `/#order/ID` mostra o pedido, seus itens congelados, endereço, frete e total. O dono encontra a ação **Confirmar pagamento simulado**. `POST /api/orders/{id}/pay` não recebe valor, dados de cartão ou gateway; em uma transação, usa o total gravado no pedido, registra a data/hora no pagamento e altera o pedido para pago. Uma segunda tentativa ou pedido fora de pendente retorna 409; outro usuário, inclusive admin de outro pedido, recebe 403. O pagamento não baixa estoque novamente. O dono e admins podem consultar o detalhe por `GET /api/orders/{id}`.
 
-Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. A API também permite as operações administrativas abaixo, usando os Requests de criação e atualização. Elas exigem sessão, CSRF e papel `admin`; o painel mantém as tabelas desses registros para consulta. A edição genérica e a exclusão de pedidos continuam indisponíveis; o status usa `UpdateOrderRequest` na rota própria.
-
-| Operação administrativa | Dados aceitos e comportamento |
-| --- | --- |
-| `POST /api/order-items` | `order_id`, `product_id`, `quantity`: acrescenta um item a pedido pendente, congela nome/preço atuais e reserva estoque. |
-| `PATCH/PUT /api/order-items/{id}` | `quantity`: altera a quantidade em pedido pendente, mantendo produto e preço congelados. Reserva ou devolve somente a diferença de estoque. |
-| `POST /api/payments` | `order_id`, com `status` opcional igual a `pendente`: cria o pagamento pendente de um pedido que ainda não possui pagamento, pelo total gravado no pedido. O checkout normal já cria esse registro. |
-| `PATCH/PUT /api/payments/{id}` | `status`: `pago` confirma o pagamento simulado; `cancelado` cancela o pedido pendente e devolve seu estoque. Repetições e outras transições retornam 409. |
-
-Valores financeiros, nomes e datas enviados nessas operações não substituem os dados calculados pelo servidor. A criação e edição de itens recalculam subtotal, total e valor do pagamento em decimal, preservando o frete. Somente produtos ativos e com estoque podem ser acrescentados ou ter a quantidade aumentada; reduzir a quantidade de um item indisponível continua permitido. Pedidos fora de pendente ou com pagamento já processado retornam 409. Falhas de estoque ou limite monetário retornam 422. Cada operação usa transação e bloqueios, compartilhando o bloqueio do pedido com pagamento e cancelamento; falhas desfazem todas as alterações. As criações retornam 201 e as edições 200, com o registro dentro de `data`. Exclusões de itens e pagamentos continuam indisponíveis.
+Pedidos, itens e pagamentos ficam disponíveis somente para consulta no painel e na API (`GET /api/orders`, `/api/order-items`, `/api/payments`), com link para o detalhe do pedido. Não há criação, edição ou exclusão direta desses registros: o pedido nasce no checkout, o pagamento é confirmado pelo dono, o cancelamento devolve o estoque e o status usa `UpdateOrderRequest` na rota própria.
 
 A unicidade de `payments.order_id` está definida na migration original de pagamentos; instalações novas já recebem o índice. Bases antigas sem ele precisam desse ajuste, pois editar uma migration já executada não altera o schema.
 
