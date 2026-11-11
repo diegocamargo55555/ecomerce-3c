@@ -59,13 +59,12 @@ const {
         <a
           href="#products"
           class="brand store-brand"
-          aria-label="3C Commerce, início"
+          aria-label="40K, início"
           @click.prevent="reset"
         >
-          <span class="brand-mark"><Icon name="bag" :size="25" /></span>
+          <span class="brand-mark"><Icon name="omega" :size="25" /></span>
           <span
-            >3c<span class="brand-light">commerce</span
-            ><small>ESCOLHAS PARA O SEU DIA</small></span
+            >40K<small>ESCOLHAS PARA O SEU DIA</small></span
           >
         </a>
         <form
@@ -179,7 +178,7 @@ const {
       <template v-else>
       <header class="catalog-intro">
         <div>
-          <span class="eyebrow">3C COMMERCE / CATÁLOGO</span>
+          <span class="eyebrow">40K / CATÁLOGO</span>
           <h1>
             {{ section === "categories" ? "Categorias" : "Produtos"
             }}<span>.</span>
@@ -404,7 +403,7 @@ const {
     <footer class="store-footer">
       <div class="store-container store-footer-row">
         <span
-          ><strong>3c<span>commerce</span></strong
+          ><strong>40K</strong
           ><small>O essencial para o seu dia.</small></span
         >
         <nav aria-label="Links do rodapé">
@@ -430,8 +429,8 @@ const {
   margin-inline: auto;
 }
 .store-header {
-  background: var(--primary);
-  color: white;
+  background: var(--blue-grad);
+  color: var(--text);
 }
 .store-header-row {
   display: grid;
@@ -441,16 +440,16 @@ const {
   padding-block: 24px;
 }
 .store-brand {
-  color: white;
+  color: var(--text);
 }
 .store-header :is(a, button):focus-visible {
-  outline-color: white;
+  outline-color: var(--text);
 }
 .store-brand .brand-mark {
   background: var(--accent);
-  color: #17212b;
+  color: var(--ink);
   border: 0;
-  border-radius: 8px;
+  border-radius: 2px;
 }
 .store-brand small {
   color: #e1efff;
@@ -459,8 +458,8 @@ const {
 }
 .store-search {
   display: flex;
-  background: white;
-  border-radius: 7px;
+  background: var(--surface);
+  border-radius: 2px;
   overflow: hidden;
   min-width: 0;
 }
@@ -477,23 +476,23 @@ const {
   padding: 12px 16px;
   font-size: 14px;
   color: var(--text);
-  background: white;
+  background: var(--surface);
 }
 .store-search button {
   display: grid;
   place-items: center;
   width: 50px;
   flex-shrink: 0;
-  background: var(--accent-dark);
-  color: white;
+  background: var(--accent);
+  color: var(--ink);
   border: 0;
 }
 .store-search button:hover {
-  background: #9a3412;
+  background: var(--primary);
 }
 .store-search button:focus-visible {
   outline-offset: -4px;
-  outline-color: white;
+  outline-color: var(--text);
 }
 .store-account,
 .store-account a {
@@ -508,9 +507,9 @@ const {
 .store-account strong {
   display: block;
 }
-.store-cart { position: relative; min-width: 44px; min-height: 44px; justify-content: center; border-radius: 6px; }
+.store-cart { position: relative; min-width: 44px; min-height: 44px; justify-content: center; border-radius: 2px; }
 .store-cart[aria-current="page"] { background: #ffffff20; }
-.cart-count { position: absolute; top: 0; right: -2px; min-width: 19px; padding: 1px 4px; border-radius: 20px; background: white; color: var(--primary); font-size: 10px; text-align: center; }
+.cart-count { position: absolute; top: 0; right: -2px; min-width: 17px; padding: 2px 4px; border-radius: 2px; background: var(--primary); color: var(--ink); font-size: 10px; font-weight: 700; line-height: 1.2; text-align: center; }
 .store-account small {
   font-size: 11px;
   color: #e1efff;
@@ -523,12 +522,12 @@ const {
 .store-signout {
   border: 0;
   background: transparent;
-  color: white;
+  color: var(--text);
   padding: 9px;
-  border-radius: 6px;
+  border-radius: 2px;
 }
 .store-navigation {
-  background: white;
+  background: var(--surface);
   border-top: 3px solid var(--accent);
   border-bottom: 1px solid var(--border);
 }
@@ -596,7 +595,6 @@ const {
 .catalog-intro h1 {
   font-size: 40px;
   font-weight: 800;
-  letter-spacing: -1.5px;
 }
 .catalog-intro h1 > span {
   color: var(--accent-dark);
@@ -643,8 +641,8 @@ const {
 .catalog-sort select {
   padding: 9px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: white;
+  border-radius: 2px;
+  background: var(--surface);
   color: var(--text);
   font-size: 13px;
 }
@@ -657,9 +655,9 @@ const {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: white;
+  background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   overflow: hidden;
   transition:
     border-color 0.15s,
@@ -667,8 +665,8 @@ const {
 }
 .product-card:hover,
 .product-card:focus-within {
-  border-color: #9bb9d6;
-  box-shadow: 0 5px 18px #17212b08;
+  border-color: var(--primary);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
 }
 .catalog-product-image {
   display: grid;
@@ -678,7 +676,7 @@ const {
   min-height: 0;
   padding: 24px;
   border: 0;
-  background: #f8fafc;
+  background: var(--text);
   overflow: hidden;
 }
 .catalog-product-image:focus-visible {
@@ -721,7 +719,6 @@ const {
 .product-card h3 {
   margin-top: 8px;
   font-size: 16px;
-  letter-spacing: -0.2px;
   line-height: 1.5;
 }
 .product-card h3 a {
@@ -778,14 +775,14 @@ const {
   width: 100%;
   margin-top: auto;
   justify-content: space-between;
-  background: white;
+  background: transparent;
   border-color: var(--accent-dark);
   color: var(--accent-dark);
-  border-radius: 6px;
+  border-radius: 2px;
 }
 .catalog-details-button:hover {
   background: var(--accent-dark);
-  color: white;
+  color: var(--ink);
 }
 .catalog-pagination {
   display: flex;
@@ -803,9 +800,9 @@ const {
 }
 .catalog-skeleton {
   padding: 20px;
-  background: white;
+  background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
 }
 .catalog-skeleton .skeleton {
   display: block;
@@ -830,8 +827,8 @@ const {
   gap: 14px;
   padding: 28px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: white;
+  border-radius: 2px;
+  background: var(--card);
 }
 .category-card:hover {
   border-color: var(--primary);
@@ -841,16 +838,16 @@ const {
   place-items: center;
   width: 52px;
   height: 52px;
-  background: #eaf3fc;
+  background: #c5a0591f;
   color: var(--primary);
-  border-radius: 10px;
+  border-radius: 2px;
 }
 .category-image {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: contain;
-  background: #f8fafc;
-  border-radius: 8px;
+  background: var(--text);
+  border-radius: 2px;
 }
 .category-card > strong {
   font-size: 19px;
@@ -872,7 +869,7 @@ const {
 }
 .store-footer {
   border-top: 1px solid var(--border);
-  background: white;
+  background: var(--surface);
 }
 .store-footer-row {
   display: flex;
@@ -882,13 +879,10 @@ const {
   padding-block: 28px;
 }
 .store-footer strong {
-  font-family: "Manrope", sans-serif;
+  font-family: "Cinzel", sans-serif;
   font-size: 19px;
-  letter-spacing: -0.8px;
-}
-.store-footer strong > span {
-  font-weight: 400;
-  margin-left: 3px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .store-footer small {
   display: block;
@@ -938,9 +932,6 @@ const {
   }
   .store-brand {
     font-size: 23px;
-  }
-  .store-brand .brand-light {
-    font-size: 16px;
   }
   .store-brand .brand-mark {
     width: 34px;

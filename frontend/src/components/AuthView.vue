@@ -19,15 +19,14 @@ const {
   <main class="auth-layout">
     <section class="auth-story">
       <a class="brand" href="#"
-        ><span class="brand-mark"><Icon name="bag" :size="23" /></span
+        ><span class="brand-mark"><Icon name="omega" :size="23" /></span
         ><span
-          >3c<span class="brand-light">commerce</span
-          ><small>ESCOLHAS PARA O SEU DIA</small></span
+          >40K<small>ESCOLHAS PARA O SEU DIA</small></span
         ></a
       >
       <div class="auth-message">
         <span class="eyebrow">BEM-VINDO À SUA CONTA.</span>
-        <h1>Que bom<br />ter você aqui.</h1>
+        <h1>Que bom <br />ter você aqui.</h1>
         <p>
           Entre ou crie sua conta e conheça<br class="desktop-only" />
           os produtos da nossa loja.
@@ -63,7 +62,7 @@ const {
     </section>
     <section class="auth-main">
       <div class="auth-form-wrap">
-        <span class="eyebrow">BEM-VINDO À 3C COMMERCE</span>
+        <span class="eyebrow">BEM-VINDO À 40K</span>
         <h2>
           {{ mode === "login" ? "Bom ter você por aqui." : "Vamos começar?" }}
         </h2>
@@ -199,7 +198,7 @@ const {
         </p>
       </div>
       <span class="auth-bottom"
-        >3C Commerce <span>·</span> Simples por natureza.</span
+        >40K <span>·</span> Simples por natureza.</span
       >
     </section>
   </main>

@@ -38,7 +38,7 @@ const {
 
 <template>
   <div v-if="!publicPage && (starting || startError)" class="startup-screen">
-    <span class="brand-mark"><Icon name="bag" :size="26" /></span
+    <span class="brand-mark"><Icon name="omega" :size="26" /></span
     ><template v-if="starting"
       ><span class="spinner" />
       <p role="status">Preparando sua loja…</p></template
@@ -87,10 +87,9 @@ const {
       aria-label="Navegação principal"
     >
       <a href="#products" class="brand" @click.prevent="navigate('products')"
-        ><span class="brand-mark"><Icon name="bag" :size="23" /></span
+        ><span class="brand-mark"><Icon name="omega" :size="23" /></span
         ><span
-          >3c<span class="brand-light">commerce</span
-          ><small>GESTÃO DA SUA LOJA</small></span
+          >40K<small>GESTÃO DA SUA LOJA</small></span
         ></a
       ><button
         class="icon-button sidebar-close"
@@ -100,7 +99,7 @@ const {
         <Icon name="close" />
       </button>
       <div class="store-selector">
-        <span class="store-avatar">3C</span>
+        <span class="store-avatar">40K</span>
         <div><strong>Minha loja</strong><span>Seu espaço de gestão</span></div>
         <span class="store-status" title="Sessão ativa"></span>
       </div>
@@ -188,7 +187,7 @@ const {
         />
       </main>
       <footer class="workspace-footer">
-        <span>3c commerce</span><span>O essencial para a sua loja.</span>
+        <span>40K</span><span>O essencial para a sua loja.</span>
       </footer>
     </div>
   </div>

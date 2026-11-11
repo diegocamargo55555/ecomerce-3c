@@ -1,4 +1,4 @@
-# 3C Commerce
+# 40K
 
 Interface em Vue 3 para a API Laravel existente, com vitrine minimalista em azul e laranja. A tela inicial exibe produtos sem exigir login. Produtos e categorias podem ser consultados por visitantes; as funções de gestão são exclusivas de admins.
 
@@ -44,7 +44,7 @@ npm run build
 - Visão geral exclusiva do admin, com dados reais de pedidos, produtos, estoque e pagamentos.
 - Listagem, criação, edição e exclusão de produtos, categorias, pessoas, endereços, carrinhos e itens dos carrinhos. Pedidos, itens dos pedidos e pagamentos têm consulta administrativa, preservando os registros do checkout.
 - Checkout em `#checkout`, com endereço próprio, revisão, frete fixo de R$ 20,00 e criação transacional do pedido. Detalhe em `#order/ID`, com confirmação de pagamento simulado pelo dono, sem dados de cartão.
-- Busca, filtros, ordenação e paginação locais; exportação CSV dos resultados filtrados.
+- Busca, filtros, ordenação e paginação locais.
 - Loading, estados vazios, erros por campo, nova tentativa e confirmação de exclusão.
 - Layout responsivo, navegação por teclado e formulários em diálogos nativos.
 

@@ -24,7 +24,7 @@ export const initials = (value = "") =>
     .slice(0, 2)
     .map((word) => word[0])
     .join("")
-    .toUpperCase() || "3C";
+    .toUpperCase() || "40K";
 
 export function relationLabel(key, record) {
   if (key === "addresses")

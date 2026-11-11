@@ -80,20 +80,20 @@ const {
 <style scoped>
 .product-back { margin-bottom: 28px; }
 .product-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; align-items: start; }
-.product-photo { display: grid; place-items: center; aspect-ratio: 1; padding: 36px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.product-photo { display: grid; place-items: center; aspect-ratio: 1; padding: 36px; border: 1px solid var(--border); border-radius: 2px; background: var(--text); }
 .product-photo img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .product-placeholder { display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--muted); }
 .product-info { padding: 18px 0; min-width: 0; }
 .product-info h1 { overflow-wrap: anywhere; }
-.product-stock { display: flex; align-items: center; gap: 7px; color: #157447; margin-top: 18px; font-size: 13px; }
-.product-stock.unavailable { color: var(--danger); }
+.product-stock { display: flex; align-items: center; gap: 7px; color: #6fcf97; margin-top: 18px; font-size: 13px; }
+.product-stock.unavailable { color: var(--danger-text); }
 .product-price { display: block; font-size: 38px; font-weight: 750; letter-spacing: -1.3px; margin: 24px 0; }
 .product-purchase { display: grid; gap: 10px; }
 .product-purchase label { font-weight: 600; font-size: 13px; }
 .product-actions { display: flex; gap: 12px; }
-.product-actions input { width: 80px; min-height: 48px; padding: 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+.product-actions input { width: 80px; min-height: 48px; padding: 10px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface); }
 .product-actions .button { flex: 1; font-size: 14px; }
-.product-cart-error { display: grid; gap: 8px; color: var(--danger); }
+.product-cart-error { display: grid; gap: 8px; color: var(--danger-text); }
 .product-description { border-top: 1px solid var(--border); margin-top: 30px; padding-top: 24px; }
 .product-description p { color: var(--muted); white-space: pre-line; overflow-wrap: anywhere; margin-top: 12px; line-height: 1.8; }
 @media (max-width: 760px) {

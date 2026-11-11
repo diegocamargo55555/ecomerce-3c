@@ -14,7 +14,7 @@ const {
 
 <template>
   <section class="my-orders" :aria-busy="loading">
-    <header><span class="eyebrow">3C COMMERCE / SUA CONTA</span><h1>Meus pedidos</h1><p class="muted">Suas compras, das mais recentes às mais antigas.</p></header>
+    <header><span class="eyebrow">40K / SUA CONTA</span><h1>Meus pedidos</h1><p class="muted">Suas compras, das mais recentes às mais antigas.</p></header>
     <div v-if="loading" class="panel empty-state" role="status"><span class="spinner" /> Carregando pedidos…</div>
     <div v-else-if="error" class="panel empty-state" role="alert"><Icon name="alert" :size="32" /><p>{{ error }}</p><button class="button secondary" @click="load">Tentar novamente</button></div>
     <div v-else-if="!orders.length" class="panel empty-state"><Icon name="orders" :size="32" /><h2>Você ainda não tem pedidos</h2><a href="#products" class="button primary">Explorar produtos</a></div>

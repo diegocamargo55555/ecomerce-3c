@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: 3C Commerce API
+  title: 40K API
   version: 1.0.0
   description: |
-    API REST da loja virtual 3C Commerce (Laravel, padrão MVC + Service Layer).
+    API REST da loja virtual 40K (Laravel, padrão MVC + Service Layer).
 
     ## Autenticação
     A API usa **sessão por cookies do Laravel Sanctum** (guard `web`). Não há tokens

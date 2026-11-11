@@ -1,4 +1,4 @@
-# 3C Commerce
+# 40K
 
 Catálogo em Vue 3, API Laravel com sessão Sanctum e MySQL. A aplicação local é acessada por **http://localhost**, na porta 80 do Nginx.
 

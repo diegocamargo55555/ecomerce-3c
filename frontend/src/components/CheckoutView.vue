@@ -26,7 +26,7 @@ const {
 <template>
   <section class="checkout-page" :aria-busy="loading || placing">
     <a href="#cart" class="text-button checkout-back"><Icon name="left" :size="16" /> Voltar ao carrinho</a>
-    <span class="eyebrow">3C COMMERCE / FINALIZAR COMPRA</span>
+    <span class="eyebrow">40K / FINALIZAR COMPRA</span>
     <h1>Confira sua compra<span>.</span></h1>
     <div v-if="loading" class="panel empty-state" role="status"><span class="spinner" /> Preparando seu pedido…</div>
     <div v-else-if="loadError" class="panel empty-state" role="alert">
@@ -96,8 +96,8 @@ const {
 .checkout-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .checkout-address, .checkout-summary { padding: 26px; display: grid; gap: 20px; }
 .checkout-address fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 12px; min-width: 0; }
-.address-option { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; overflow-wrap: anywhere; }
-.address-option:has(input:checked) { border-color: var(--primary); background: #005baa06; }
+.address-option { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 2px; cursor: pointer; font-size: 13px; overflow-wrap: anywhere; }
+.address-option:has(input:checked) { border-color: var(--primary); background: #d4af3714; }
 .address-option input { margin-top: 4px; }
 .address-form { display: grid; gap: 18px; }
 .checkout-actions { display: flex; gap: 16px; align-items: center; }

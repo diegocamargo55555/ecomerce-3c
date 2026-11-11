@@ -43,7 +43,6 @@ const {
   chooseFile,
   save,
   remove,
-  exportCsv,
 } = useResource(props, emit);
 </script>
 
@@ -134,13 +133,6 @@ const {
             </button></template
           >
         </div>
-        <button
-          class="button subtle export-button"
-          :disabled="loading || !filtered.length"
-          @click="exportCsv"
-        >
-          <Icon name="download" :size="16" /> Exportar
-        </button>
       </div>
       <div class="search-toolbar">
         <div class="search-input">

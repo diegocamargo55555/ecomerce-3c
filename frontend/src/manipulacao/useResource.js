@@ -109,7 +109,7 @@ export function useResource(props, emit) {
           .map((field) => field.resource),
       ),
     ];
-    // shortcut: loads whole tables, because search, filters, CSV and relation labels run in the browser; move them to the server with paginate() when a table passes a few thousand rows.
+    // shortcut: loads whole tables, because search, filters and relation labels run in the browser; move them to the server with paginate() when a table passes a few thousand rows.
     const result = await Promise.allSettled([
       listResource(key),
       ...keys.map(listResource),
@@ -270,27 +270,6 @@ export function useResource(props, emit) {
     }
   }
 
-  function exportCsv() {
-    const escape = (value) =>
-      `"${String(value ?? "")
-        .replace(/^[=+@\-\t\r]/, "'$&")
-        .replaceAll('"', '""')}"`;
-    const data = [
-      config.value.columns.map((column) => escape(column.label)).join(";"),
-      ...filtered.value.map((row) =>
-        config.value.columns.map((column) => escape(cell(row, column))).join(";"),
-      ),
-    ].join("\r\n");
-    const url = URL.createObjectURL(
-      new Blob(["\uFEFF" + data], { type: "text/csv;charset=utf-8;" }),
-    );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${props.resourceKey}.csv`;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
   return {
     config,
     rows,
@@ -323,6 +302,5 @@ export function useResource(props, emit) {
     chooseFile,
     save,
     remove,
-    exportCsv,
   };
 }

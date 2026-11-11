@@ -81,7 +81,7 @@ export function useApp() {
       }
     }
     menuOpen.value = false;
-    document.title = `${title.value} · 3C Commerce`;
+    document.title = `${title.value} · 40K`;
   }
   function navigate(key) {
     window.location.hash = key;

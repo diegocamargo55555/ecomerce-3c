@@ -19,7 +19,7 @@ const {
 <template>
   <section class="cart-page" :aria-busy="loading || busy">
     <header class="cart-heading">
-      <div><span class="eyebrow">3C COMMERCE / SUAS ESCOLHAS</span><h1>Meu carrinho<span>.</span></h1></div>
+      <div><span class="eyebrow">40K / SUAS ESCOLHAS</span><h1>Meu carrinho<span>.</span></h1></div>
       <a href="#products" class="text-button"><Icon name="left" :size="16" /> Continuar comprando</a>
     </header>
     <div v-if="error" class="alert" role="alert">
@@ -86,15 +86,15 @@ const {
 .cart-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
 .cart-items { display: grid; gap: 16px; padding: 0; margin: 0; list-style: none; }
 .cart-item { display: grid; grid-template-columns: 100px minmax(0, 1fr) auto; gap: 20px; padding: 22px; align-items: start; }
-.cart-image { display: grid; place-items: center; height: 100px; padding: 8px; border-radius: 8px; background: var(--soft); color: var(--muted); }
+.cart-image { display: grid; place-items: center; height: 100px; padding: 8px; border-radius: 2px; background: var(--soft); color: var(--muted); }
 .cart-image img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .cart-item-body h2 { font-size: 15px; overflow-wrap: anywhere; }
 .cart-unit-price { margin: 6px 0 14px; font-size: 12px; }
-.cart-unavailable { display: flex; align-items: center; gap: 6px; color: var(--danger); font-size: 12px; margin-bottom: 14px; }
+.cart-unavailable { display: flex; align-items: center; gap: 6px; color: var(--danger-text); font-size: 12px; margin-bottom: 14px; }
 .cart-item-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .cart-item-actions label { font-size: 12px; }
-.cart-item-actions input { width: 68px; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
-.cart-remove { color: var(--danger); }
+.cart-item-actions input { width: 68px; padding: 9px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface); }
+.cart-remove { color: var(--danger-text); }
 .cart-subtotal { display: grid; gap: 5px; text-align: right; }
 .cart-subtotal strong { white-space: nowrap; font-size: 17px; }
 .cart-summary { padding: 24px; display: grid; gap: 18px; }

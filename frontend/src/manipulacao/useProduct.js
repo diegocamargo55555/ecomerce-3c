@@ -29,7 +29,7 @@ export function useProduct(props, emit) {
       const result = await getProduct(props.productId);
       if (!active) return;
       product.value = result;
-      document.title = `${product.value.name} · 3C Commerce`;
+      document.title = `${product.value.name} · 40K`;
     } catch (failure) {
       notFound.value = failure.status === 404;
       error.value = failure.message;

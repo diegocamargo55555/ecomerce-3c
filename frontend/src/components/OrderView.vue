@@ -41,7 +41,7 @@ const {
     </div>
     <template v-else-if="order">
       <header class="order-heading">
-        <div><span class="eyebrow">3C COMMERCE / SEU PEDIDO</span><h1>Pedido #{{ order.id }}</h1><p class="muted">Criado em {{ date(order.created_at) }}</p></div>
+        <div><span class="eyebrow">40K / SEU PEDIDO</span><h1>Pedido #{{ order.id }}</h1><p class="muted">Criado em {{ date(order.created_at) }}</p></div>
         <span class="badge" :class="order.status === 'cancelado' ? 'danger' : payment ? 'success' : 'warning'">{{ statusNames[order.status] || order.status }}</span>
       </header>
       <div class="order-layout">
@@ -113,7 +113,7 @@ const {
 .order-totals > div { display: flex; justify-content: space-between; gap: 16px; }
 .order-totals dd { margin: 0; }
 .order-total { font-size: 24px; font-weight: 700; padding-top: 16px; border-top: 1px solid var(--border); }
-.order-paid { display: flex; align-items: center; gap: 8px; color: #157447; }
+.order-paid { display: flex; align-items: center; gap: 8px; color: #6fcf97; }
 @media (max-width: 800px) { .order-layout { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 500px) { .order-details, .order-payment { padding: 18px; } .order-heading { align-items: flex-start; flex-direction: column; } }
 </style>

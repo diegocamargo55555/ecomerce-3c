@@ -35,7 +35,7 @@ const {
 
 <template>
   <section class="profile-page">
-    <header><span class="eyebrow">3C COMMERCE / SUA CONTA</span><h1>Meu perfil</h1></header>
+    <header><span class="eyebrow">40K / SUA CONTA</span><h1>Meu perfil</h1></header>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <form class="panel profile-panel" @submit.prevent="saveProfile" :aria-busy="savingProfile">
       <h2>Meus dados</h2>
