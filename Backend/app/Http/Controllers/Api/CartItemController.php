@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AddCartItemRequest;
 use App\Http\Requests\StoreCartItemRequest;
 use App\Http\Requests\UpdateCartItemRequest;
+use App\Http\Requests\UpdateCurrentCartItemRequest;
 use App\Http\Resources\CartItemResource;
 use App\Http\Resources\CartResource;
 use App\Services\CartItemService;
@@ -23,21 +25,16 @@ class CartItemController extends Controller
         return CartItemResource::collection($this->cartItemService->listAll());
     }
 
-    public function add(Request $request)
+    public function add(AddCartItemRequest $request)
     {
-        $data = $request->validate([
-            'product_id' => ['required', 'integer', 'min:1'],
-            'quantity' => ['required', 'integer', 'min:1', 'max:4294967295'],
-        ]);
         return new CartItemResource($this->cartItemService->addToCart(
-            $request, $data['product_id'], $data['quantity'],
+            $request, $request->validated('product_id'), $request->validated('quantity'),
         ));
     }
 
-    public function updateCurrent(Request $request, int $id)
+    public function updateCurrent(UpdateCurrentCartItemRequest $request, int $id)
     {
-        $data = $request->validate(['quantity' => ['required', 'integer', 'min:0', 'max:4294967295']]);
-        $this->cartItemService->updateCurrent($request, $id, $data['quantity']);
+        $this->cartItemService->updateCurrent($request, $id, $request->validated('quantity'));
 
         return new CartResource($this->cartService->details($this->cartService->current($request)));
     }

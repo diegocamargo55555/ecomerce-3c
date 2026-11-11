@@ -12,19 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('categories', function (Blueprint $table) {
-            // id bigint (Primary Key, Auto-increment)
             $table->id();
-
-            // name varchar(255) NN
             $table->string('name', 255);
-
-            // slug varchar(255) NN (Unique)
             $table->string('slug', 255)->unique();
-
-            // description text (Nullable, pois não tem a marcação NN)
             $table->text('description')->nullable();
-
-            // created_at e updated_at timestamp
             $table->timestamps();
         });
     }

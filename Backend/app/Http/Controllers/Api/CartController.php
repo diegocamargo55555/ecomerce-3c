@@ -18,7 +18,6 @@ class CartController extends Controller
 
     public function current(Request $request)
     {
-        // Só visitar a loja não grava carrinho: o de visitante nasce ao adicionar o primeiro item.
         $cart = $request->user() || $request->session()->has('cart_token')
             ? $this->cartService->current($request) : new Cart;
 
