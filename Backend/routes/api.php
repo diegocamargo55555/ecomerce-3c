@@ -45,14 +45,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('admin/products/{id}/image', [ProductController::class, 'uploadImage'])->whereNumber('id');
         Route::patch('admin/orders/{id}/status', [OrderController::class, 'updateStatus'])->whereNumber('id');
 
-        Route::apiResource('users', UserController::class)->whereNumber('user');
-        Route::apiResource('addresses', AddressController::class)->whereNumber('address');
+        Route::apiResource('users', UserController::class)->only(['index', 'show'])->whereNumber('user');
         Route::apiResource('orders', OrderController::class)->only(['index'])->whereNumber('order');
         Route::apiResource('payments', PaymentController::class)->only(['index', 'show'])->whereNumber('payment');
         Route::apiResource('categories', CategoryController::class)->except(['index', 'show'])->whereNumber('category');
         Route::apiResource('products', ProductController::class)->except(['index', 'show'])->whereNumber('product');
-        Route::apiResource('carts', CartController::class)->whereNumber('cart');
-        Route::apiResource('cart-items', CartItemController::class)->whereNumber('cart_item');
+        Route::apiResource('carts', CartController::class)->only(['index', 'show'])->whereNumber('cart');
+        Route::apiResource('cart-items', CartItemController::class)->only(['index', 'show'])->whereNumber('cart_item');
         Route::apiResource('order-items', OrderItemController::class)->only(['index', 'show'])->whereNumber('order_item');
     });
 });

@@ -27,9 +27,3 @@ class CartResource extends JsonResource
     }
 }
 
-
-/*
-            'user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'guest_token' => ['nullable', 'string', 'max:255', 'unique:carts,guest_token'],
-
-*/

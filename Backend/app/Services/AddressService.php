@@ -13,19 +13,9 @@ class AddressService
         return Address::where('users_id', $userId)->orderByDesc('id')->get();
     }
 
-    public function listAll(): Collection
-    {
-        return Address::all();
-    }
-
     public function create(array $data): Address
     {
         return Address::create($data);
-    }
-
-    public function findById(int $id): Address
-    {
-        return Address::findOrFail($id);
     }
 
     public function update(int $id, array $data, ?int $userId = null): Address

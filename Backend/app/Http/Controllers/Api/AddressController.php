@@ -24,9 +24,7 @@ class AddressController extends Controller
 
     public function storeOwn(StoreAddressRequest $request)
     {
-        $address = $this->addressService->create([
-            ...$request->validated(), 'users_id' => $request->user()->id,
-        ]);
+        $address = $this->addressService->create([...$request->validated(), 'users_id' => $request->user()->id,]);
 
         return new AddressResource($address);
     }
@@ -45,62 +43,4 @@ class AddressController extends Controller
         return response()->noContent();
     }
 
-        /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        return addressResource::collection($this->addressService->listAll());
-
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreAddressRequest $request)
-    {
-        $address = $this->addressService->create($request->validated());
-        return (new AddressResource($address))->response()->setStatusCode(201);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        return new addressResource($this->addressService->findById($id));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdateAddressRequest $request, int $id)
-    {
-        $address = $this->addressService->update($id, $request->validated());
-        return (new AddressResource($address))->response()->setStatusCode(200);
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        $this->addressService->delete($id);
-        return response()->noContent();
-    }
 }
-
-
-
-
-/*
-php artisan make:resource AddressResource
-php artisan make:resource CartResource
-php artisan make:resource CategoryResource
-php artisan make:resource OrderResource
-php artisan make:resource OrderItemResource
-php artisan make:resource PaymentResource
-php artisan make:resource ProductResource
-php artisan make:resource UserResource
-
-*/
