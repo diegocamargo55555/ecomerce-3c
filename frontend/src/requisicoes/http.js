@@ -104,7 +104,9 @@ export async function api(path, { method = "GET", body } = {}, retry = true) {
     throw new ApiError(
       response.status >= 500
         ? "Não foi possível concluir a solicitação. Tente novamente em instantes."
-        : messages[response.status] || "Não foi possível concluir esta ação.",
+        : (response.status === 409 && payload?.message) ||
+          messages[response.status] ||
+          "Não foi possível concluir esta ação.",
       response.status,
       payload?.errors || {},
     );

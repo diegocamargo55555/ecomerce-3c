@@ -63,7 +63,7 @@ class CartMergeTest extends TestCase
         $account = Cart::create(['user_id' => $user->id]);
         Cart_item::create(['cart_id' => $account->id, 'product_id' => $this->product->id, 'quantity' => 4]);
         $this->postJson('/api/cart/items', ['product_id' => $this->product->id, 'quantity' => 3]);
-        foreach (['inactive', 'empty', 'deleted'] as $state) {
+        foreach (['inactive', 'empty'] as $state) {
             $product = $this->product->replicate();
             $product->name = $state;
             $product->save();
@@ -71,11 +71,10 @@ class CartMergeTest extends TestCase
             match ($state) {
                 'inactive' => $product->update(['is_active' => false]),
                 'empty' => $product->update(['stock' => 0]),
-                'deleted' => $product->delete(),
             };
         }
         $this->postJson('/api/login', ['email' => $user->email, 'password' => 'password'])
-            ->assertOk()->assertJsonCount(4, 'cart_warnings');
+            ->assertOk()->assertJsonCount(3, 'cart_warnings');
         $this->getJson('/api/cart')->assertJsonPath('data.item_count', 5)
             ->assertJsonPath('data.total', '0.50')->assertJsonCount(1, 'data.items');
         $this->assertSame(5, $this->product->fresh()->stock);

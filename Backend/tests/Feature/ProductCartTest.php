@@ -118,7 +118,7 @@ class ProductCartTest extends TestCase
         $this->patchJson("/api/cart/items/{$id}", ['quantity' => 0])
             ->assertOk()->assertJsonPath('data.total', '0.00')->assertJsonPath('data.items', []);
         $id = $this->postJson('/api/cart/items', ['product_id' => $this->product->id, 'quantity' => 1])->json('data.id');
-        $this->product->delete();
+        $this->product->update(['is_active' => false]);
         $this->getJson('/api/cart')->assertOk()->assertJsonPath('data.items.0.available', false);
         $this->deleteJson("/api/cart/items/{$id}")->assertOk()->assertJsonPath('data.item_count', 0);
     }

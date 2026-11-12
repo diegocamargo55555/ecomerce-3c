@@ -6,6 +6,7 @@ use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class ProductService
@@ -85,7 +86,7 @@ class ProductService
         }
 
         if ($previous !== null && $previous !== $path
-            && ! Product::withTrashed()->where('image_url', $previousUrl)->exists()) {
+            && ! Product::where('image_url', $previousUrl)->exists()) {
             $disk->delete($previous);
         }
 
@@ -100,6 +101,16 @@ class ProductService
 
     public function delete(int $id): void
     {
-        Product::findOrFail($id)->delete();
+        DB::transaction(function () use ($id) {
+            $product = Product::lockForUpdate()->findOrFail($id);
+            // Pedidos guardam product_id: produto já vendido é desativado, não apagado.
+            abort_if(
+                $product->orderItems()->exists(),
+                409,
+                "Não é possível excluir {$product->name}: há pedidos com este produto. Desative o produto."
+            );
+            $product->cartItems()->delete();
+            $product->delete();
+        });
     }
 }

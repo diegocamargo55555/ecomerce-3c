@@ -33,16 +33,7 @@ class AddressService
         return DB::transaction(function () use ($id, $data, $userId) {
             $address = Address::when($userId !== null, fn ($query) => $query->where('users_id', $userId))
                 ->lockForUpdate()->findOrFail($id);
-            $address->fill($data);
-            if ($address->isDirty() && $address->orders()->exists()) {
-                // Mantém o endereço original dos pedidos e oferece uma nova versão para entregas.
-                $replacement = $address->replicate();
-                $replacement->save();
-                $address->refresh()->delete();
-
-                return $replacement;
-            }
-            $address->save();
+            $address->update($data);
 
             return $address;
         }, 3);
@@ -51,8 +42,11 @@ class AddressService
     public function delete(int $id, ?int $userId = null): void
     {
         DB::transaction(function () use ($id, $userId) {
-            Address::when($userId !== null, fn ($query) => $query->where('users_id', $userId))
-                ->lockForUpdate()->findOrFail($id)->delete();
+            $address = Address::when($userId !== null, fn ($query) => $query->where('users_id', $userId))
+                ->lockForUpdate()->findOrFail($id);
+            // Pedidos guardam address_id: endereço já usado em pedido não pode ser apagado.
+            abort_if($address->orders()->exists(), 409, 'Não é possível excluir este endereço: há pedidos vinculados a ele.');
+            $address->delete();
         }, 3);
     }
 }

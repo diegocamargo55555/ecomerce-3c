@@ -22,7 +22,7 @@ class OrderService
     public function review(Request $request): array
     {
         $cart = $this->cartService->current($request);
-        $cart->load(['items.product' => fn ($query) => $query->withTrashed()]);
+        $cart->load('items.product');
 
         return $this->quote($cart);
     }
@@ -36,7 +36,7 @@ class OrderService
         $items = [];
         foreach ($cart->items as $item) {
             $product = $item->product;
-            if (! $product || $product->trashed() || ! $product->is_active
+            if (! $product || ! $product->is_active
                 || $item->quantity < 1 || $item->quantity > $product->stock) {
                 $name = $product?->name ?? "Produto #{$item->product_id}";
                 throw ValidationException::withMessages(['cart' => ["{$name}: produto indisponível ou estoque insuficiente."]]);
@@ -62,7 +62,7 @@ class OrderService
             $cart = $this->cartService->current($request);
             $address = Address::where('users_id', $request->user()->id)->lockForUpdate()->findOrFail($addressId);
             $items = $cart->items()->orderBy('product_id')->lockForUpdate()->get();
-            $products = Product::withTrashed()->whereIn('id', $items->pluck('product_id'))
+            $products = Product::whereIn('id', $items->pluck('product_id'))
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             foreach ($items as $item) {
                 $item->setRelation('product', $products->get($item->product_id));
@@ -106,7 +106,7 @@ class OrderService
             $payment = Payment::where('order_id', $id)->lockForUpdate()->firstOrNew();
             abort_if($payment->exists && $payment->status !== 'pendente', 409, 'O pagamento deste pedido já foi processado.');
             $items = $order->items()->orderBy('product_id')->lockForUpdate()->get();
-            $products = Product::withTrashed()->whereIn('id', $items->pluck('product_id'))
+            $products = Product::whereIn('id', $items->pluck('product_id'))
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             foreach ($items as $item) {
                 $products->get($item->product_id)->increment('stock', $item->quantity);

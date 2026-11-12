@@ -125,7 +125,7 @@ A regra de fusão, executada no login **e** no cadastro, é:
 
 1. O servidor recupera o identificador de visitante guardado na sessão; não aceita um token informado no corpo da requisição.
 2. Produtos presentes nos dois carrinhos têm suas quantidades somadas. Produtos presentes em apenas um são mantidos.
-3. A fusão revalida todos os produtos dos dois carrinhos. A quantidade é limitada ao estoque atual; produtos inativos, excluídos ou sem estoque são removidos. Cada ajuste ou remoção gera um aviso em `cart_warnings`, ao lado de `data` na resposta de autenticação, exibido no frontend.
+3. A fusão revalida todos os produtos dos dois carrinhos. A quantidade é limitada ao estoque atual; produtos inativos ou sem estoque são removidos. Cada ajuste ou remoção gera um aviso em `cart_warnings`, ao lado de `data` na resposta de autenticação, exibido no frontend.
 4. A fusão é transacional, descarta o carrinho visitante com seus itens, remove o identificador da sessão e regenera a sessão invalidando a anterior. Login ou cadastro inválido preserva o carrinho visitante.
 5. O carrinho da conta permanece no banco entre sessões e dispositivos. Logout não apaga esse carrinho.
 
@@ -172,7 +172,7 @@ Abra **http://localhost/#profile** pelo link “Perfil” ou pelo ícone da cont
 
 Na mesma tela, é possível cadastrar, editar e excluir os próprios endereços. `GET/POST /api/my/addresses` lista/cadastra; `PATCH/DELETE /api/my/addresses/{id}` edita/exclui. Endereço alheio, inexistente ou excluído retorna 404, inclusive para admins nessas rotas pessoais. `users_id` não é aceito em edições pessoais; o CRUD administrativo mantém sua autorização separada.
 
-A coluna `addresses.deleted_at` é criada diretamente em `2026_10_22_133440_create_addresses_table.php`, com `$table->softDeletes()`. Não há migration adicional para essa coluna. Em uma base de desenvolvimento antiga que possa ser apagada, execute `docker compose exec php php artisan migrate:fresh --seed --force`: isso apaga todos os dados e recria as tabelas com os exemplos. O banco local foi recriado dessa forma. Endereços excluídos ficam ocultos na conta e no checkout, mas continuam disponíveis nos pedidos. Ao editar um endereço já utilizado, a API devolve uma nova versão com **outro ID** e arquiva a anterior na mesma transação. O frontend utiliza o ID devolvido; novas compras usam a versão atual, enquanto pedidos existentes conservam os dados originais. A mesma proteção vale para edição e exclusão administrativas. Seeders não restauram os endereços excluídos.
+Não há exclusão lógica (soft delete): excluir apaga a linha do banco. Endereço já usado em pedido não pode ser excluído (409) e, ao ser editado, é alterado no próprio registro, de modo que os pedidos antigos passam a exibir o endereço atualizado. Produto com pedidos também não pode ser excluído (409): desative-o com `is_active`; produto sem pedidos é apagado junto com os itens de carrinho que o referenciam. Em uma base de desenvolvimento antiga, que ainda tenha as colunas `deleted_at`, execute `docker compose exec php php artisan migrate:fresh --seed --force`: isso apaga todos os dados e recria as tabelas com os exemplos.
 
 Os testes verificam isolamento entre contas, validação, senha atual na alteração de e-mail, manutenção da sessão, versionamento, checkout com o novo ID e rollback. Alterações no endereço feitas antes desta versão não podem ser reconstruídas retroativamente.
 

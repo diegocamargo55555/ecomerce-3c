@@ -96,7 +96,6 @@ class CheckoutTest extends TestCase
         $this->assertSame(2, $this->product->fresh()->stock);
         $this->assertDatabaseCount('cart_items', 0);
         $this->product->update(['name' => 'Novo nome', 'price' => '99.99']);
-        $this->product->delete();
         $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.items.0.product_name', 'Marine')
             ->assertJsonPath('data.items.0.unit_price', '0.20')->assertJsonPath('data.total', '20.60');
     }
@@ -137,8 +136,6 @@ class CheckoutTest extends TestCase
                 ->assertUnprocessable()->assertJsonValidationErrors('cart');
             $this->assertStringContainsString($other->name, $response->json('errors.cart.0'));
         }
-        $other->delete();
-        $this->postJson('/api/orders', ['address_id' => $this->address->id])->assertUnprocessable();
         $this->assertDatabaseCount('orders', 0);
         $this->assertDatabaseCount('order_items', 0);
         $this->assertDatabaseCount('payments', 0);
@@ -262,15 +259,13 @@ class CheckoutTest extends TestCase
         $this->postJson('/api/cart/items', ['product_id' => $other->id, 'quantity' => 1])->assertSuccessful();
         $id = $this->checkout();
         $this->product->update(['is_active' => false, 'price' => '99.99']);
-        $other->delete();
         $this->postJson("/api/orders/{$id}/cancel", ['quantity' => 999, 'total' => '0.01', 'status' => 'pago'])
             ->assertOk()->assertJsonPath('data.status', 'cancelado')->assertJsonPath('data.total', '20.30')
             ->assertJsonPath('data.payments.0.status', 'cancelado')->assertJsonPath('data.payments.0.paid_at', null)
             ->assertJsonPath('data.items.0.unit_price', '0.10')->assertJsonCount(2, 'data.items');
         $this->assertSame(5, $this->product->fresh()->stock);
         $this->assertFalse($this->product->fresh()->is_active);
-        $this->assertSame(5, Product::withTrashed()->find($other->id)->stock);
-        $this->assertTrue(Product::withTrashed()->find($other->id)->trashed());
+        $this->assertSame(5, $other->fresh()->stock);
         $this->postJson("/api/orders/{$id}/cancel")->assertConflict();
         $this->postJson("/api/orders/{$id}/pay")->assertConflict();
         $this->assertSame(5, $this->product->fresh()->stock);
@@ -345,55 +340,38 @@ class CheckoutTest extends TestCase
         $this->patchJson($url, ['street' => 'Rua B', 'complement' => null])->assertOk()
             ->assertJsonPath('data.id', $this->address->id)->assertJsonPath('data.street', 'Rua B');
         $this->deleteJson($url)->assertNoContent();
-        $this->assertSoftDeleted('addresses', ['id' => $this->address->id]);
+        $this->assertDatabaseMissing('addresses', ['id' => $this->address->id]);
         $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(0, 'data');
         $this->patchJson($url, ['street' => 'Rua C'])->assertNotFound();
         $this->deleteJson($url)->assertNotFound();
     }
 
-    public function test_address_changes_and_deletes_preserve_orders_and_checkout_uses_new_version(): void
-    {
-        $this->fillCart(1);
-        $first = $this->checkout();
-        $oldId = $this->address->id;
-        $newId = $this->patchJson("/api/my/addresses/{$oldId}", ['street' => 'Rua B'])->assertOk()
-            ->assertJsonPath('data.street', 'Rua B')->json('data.id');
-        $this->assertNotSame($oldId, $newId);
-        $this->assertSoftDeleted('addresses', ['id' => $oldId, 'street' => 'Rua A']);
-        $this->getJson("/api/orders/{$first}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
-        $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $newId);
-        $this->fillCart(1);
-        $this->postJson('/api/orders', ['address_id' => $oldId])->assertNotFound();
-        $second = $this->postJson('/api/orders', ['address_id' => $newId])->assertCreated()->json('data.id');
-        $this->deleteJson("/api/my/addresses/{$newId}")->assertNoContent();
-        $this->getJson("/api/orders/{$second}")->assertOk()->assertJsonPath('data.address.street', 'Rua B');
-        $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(0, 'data');
-    }
-
-    public function test_admin_address_edits_also_preserve_order_history(): void
+    public function test_address_with_orders_is_edited_in_place_and_cannot_be_deleted(): void
     {
         $this->fillCart(1);
         $id = $this->checkout();
+        $url = "/api/my/addresses/{$this->address->id}";
+        $this->patchJson($url, ['street' => 'Rua B'])->assertOk()->assertJsonPath('data.id', $this->address->id);
+        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua B');
+        $this->deleteJson($url)->assertConflict();
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->deleteJson("/api/addresses/{$this->address->id}")->assertConflict();
+        $this->assertDatabaseHas('addresses', ['id' => $this->address->id]);
+    }
+
+    public function test_product_delete_clears_carts_but_is_refused_once_ordered(): void
+    {
+        $this->fillCart(1);
+        $this->checkout();
+        $other = $this->product->replicate();
+        $other->save();
+        $this->postJson('/api/cart/items', ['product_id' => $other->id, 'quantity' => 1])->assertSuccessful();
         $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $newId = $this->patchJson("/api/addresses/{$this->address->id}", ['street' => 'Rua admin'])
-            ->assertOk()->json('data.id');
-        $this->deleteJson("/api/addresses/{$newId}")->assertNoContent();
-        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
-    }
-
-    public function test_address_versioning_rolls_back_if_archiving_fails(): void
-    {
-        $this->fillCart(1);
-        $id = $this->checkout();
-        Event::listen('eloquent.deleting: '.Address::class, fn () => throw new \RuntimeException('Falha simulada'));
-        try {
-            $this->patchJson("/api/my/addresses/{$this->address->id}", ['street' => 'Rua B'])->assertServerError();
-        } finally {
-            Event::forget('eloquent.deleting: '.Address::class);
-        }
-        $this->assertDatabaseCount('addresses', 1);
-        $this->assertSame('Rua A', $this->address->fresh()->street);
-        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
+        $this->deleteJson("/api/products/{$other->id}")->assertNoContent();
+        $this->assertDatabaseMissing('products', ['id' => $other->id]);
+        $this->assertDatabaseCount('cart_items', 0);
+        $this->deleteJson("/api/products/{$this->product->id}")->assertConflict();
+        $this->assertDatabaseHas('products', ['id' => $this->product->id]);
     }
 
     public function test_order_status_changes_require_admin_even_for_the_owner(): void

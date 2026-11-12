@@ -51,7 +51,7 @@ class ProductSeeder extends Seeder
         );
 
         foreach ($products as $product) {
-            Product::withTrashed()->firstOrCreate(['name' => $product['name']], [
+            Product::firstOrCreate(['name' => $product['name']], [
                 'category_id' => $categoryIds[$product['category']],
                 'name' => $product['name'],
                 'description' => $product['description'],

@@ -21,10 +21,7 @@ return new class extends Migration
             $table->string('image_url', 255)->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-
-            $table->softDeletes();  
         });
-
     }
 
     /**
