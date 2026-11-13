@@ -11,7 +11,6 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Pedidos sem pagamento reservam estoque; depois de 30 minutos ele volta à venda.
 Artisan::command('orders:cancel-unpaid', function (OrderService $orders) {
     Order::where('status', 'pendente')->where('created_at', '<', now()->subMinutes(30))
         ->with('user')->get()
@@ -20,7 +19,6 @@ Artisan::command('orders:cancel-unpaid', function (OrderService $orders) {
 
 Schedule::command('orders:cancel-unpaid')->everyFiveMinutes()->withoutOverlapping();
 
-// Carrinhos de visitante sem uso há uma semana: a sessão que os alcançava já expirou.
 Artisan::command('carts:prune-guests', function () {
     $limit = now()->subWeek();
     Cart::whereNull('user_id')->where('created_at', '<', $limit)

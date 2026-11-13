@@ -87,11 +87,7 @@ export const resources = {
         max: undefined,
         wide: true,
       }),
-      text("image_url", "URL da imagem", {
-        required: false,
-        wide: true,
-        hint: "Em branco, a categoria usa a foto do primeiro produto ativo.",
-      }),
+      text("image_url", "URL da imagem", { required: false, wide: true }),
     ],
     columns: [
       col("name", "Categoria", "strong"),

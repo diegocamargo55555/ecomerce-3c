@@ -371,6 +371,19 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $id, 'status' => 'pendente']);
     }
 
+    public function test_shipping_is_free_only_when_subtotal_is_above_100(): void
+    {
+        $this->product->update(['price' => '100.00']);
+        $this->fillCart(1);
+        $this->getJson('/api/checkout')->assertOk()
+            ->assertJsonPath('data.shipping_cost', '20.00')->assertJsonPath('data.total', '120.00');
+        $this->product->update(['price' => '100.01']);
+        $this->getJson('/api/checkout')->assertOk()
+            ->assertJsonPath('data.shipping_cost', '0.00')->assertJsonPath('data.total', '100.01');
+        $id = $this->checkout();
+        $this->assertDatabaseHas('orders', ['id' => $id, 'shipping_cost' => '0.00', 'total' => '100.01']);
+    }
+
     public function test_admin_can_ship_then_deliver_without_modifying_stock_payment_or_order_values(): void
     {
         $this->fillCart(1);

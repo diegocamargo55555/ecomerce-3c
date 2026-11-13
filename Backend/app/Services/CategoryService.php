@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Category;
-use App\Models\Product;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -11,14 +10,7 @@ class CategoryService
 {
     public function listAll(): Collection
     {
-        // Sem foto própria, a categoria usa a do primeiro produto ativo com foto.
-        return Category::addSelect(['product_image_url' => Product::select('image_url')
-            ->whereColumn('category_id', 'categories.id')
-            ->where('is_active', true)
-            ->whereNotNull('image_url')
-            ->orderBy('id')
-            ->limit(1),
-        ])->get();
+        return Category::all();
     }
 
     public function create(array $data): Category

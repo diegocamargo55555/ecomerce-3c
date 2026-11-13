@@ -119,19 +119,20 @@ class CatalogTest extends TestCase
         $this->getJson('/api/products')->assertJsonPath('meta.total', 3);
     }
 
-    public function test_category_list_shows_the_photo_of_its_first_active_product(): void
+    public function test_category_shows_only_its_own_image(): void
     {
-        // Inativo não empresta foto; categoria sem foto fica nula.
-        Product::where('name', 'Marine inativo')->update(['image_url' => '/images/products/inativo.jpg']);
+        // Foto de produto não é emprestada à categoria.
         Product::where('name', 'Marine barato')->update(['image_url' => '/images/products/barato.jpg']);
+        $id = Category::where('slug', 'miniaturas')->value('id');
+
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->patchJson("/api/categories/{$id}", ['image_url' => 'propria.jpg'])
+            ->assertUnprocessable()->assertJsonValidationErrors('image_url');
+        $this->patchJson("/api/categories/{$id}", ['image_url' => '/images/categories/propria.jpg'])
+            ->assertOk()->assertJsonPath('data.image_url', '/images/categories/propria.jpg');
 
         $this->getJson('/api/categories')->assertOk()
-            ->assertJsonPath('data.0.image_url', '/images/products/barato.jpg')
+            ->assertJsonPath('data.0.image_url', '/images/categories/propria.jpg')
             ->assertJsonPath('data.1.image_url', null);
-
-        // Foto própria da categoria vence a do produto.
-        $id = $this->getJson('/api/categories')->json('data.0.id');
-        \App\Models\Category::findOrFail($id)->update(['image_url' => '/images/categories/propria.jpg']);
-        $this->getJson('/api/categories')->assertJsonPath('data.0.image_url', '/images/categories/propria.jpg');
     }
 }

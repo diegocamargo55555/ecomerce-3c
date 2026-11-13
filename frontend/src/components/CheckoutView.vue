@@ -77,7 +77,7 @@ const {
         </ul>
         <dl class="checkout-totals">
           <div><dt>Produtos</dt><dd>{{ currency(quote.subtotal) }}</dd></div>
-          <div><dt>Frete fixo</dt><dd>{{ currency(quote.shipping_cost) }}</dd></div>
+          <div><dt>Frete</dt><dd>{{ currency(quote.shipping_cost) }}</dd></div>
           <div class="checkout-total"><dt>Total</dt><dd>{{ currency(quote.total) }}</dd></div>
         </dl>
         <small class="muted">Preços e estoque serão conferidos novamente ao confirmar. O pagamento é simulado, sem cobrança real.</small>

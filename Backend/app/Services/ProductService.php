@@ -45,7 +45,6 @@ class ProductService
 
     public function create(array $data): Product
     {
-        // refresh: devolve os padrões do banco (stock, is_active) dos campos não enviados.
         return Product::create($data)->refresh();
     }
 
@@ -62,12 +61,6 @@ class ProductService
         return $product;
     }
 
-    /**
-     * Grava o arquivo no disco "public" (storage/app/public/products), que o
-     * Compose mantém em um volume, e aponta image_url para ele, sem domínio,
-     * para a imagem continuar válida se o endereço do site mudar. A imagem enviada
-     * anteriormente é apagada se nenhum produto a usa; URLs externas e fotos dos seeders não são tocadas.
-     */
     public function updateImage(int $id, UploadedFile $file): Product
     {
         $product = Product::findOrFail($id);
@@ -103,7 +96,6 @@ class ProductService
     {
         DB::transaction(function () use ($id) {
             $product = Product::lockForUpdate()->findOrFail($id);
-            // Pedidos guardam product_id: produto já vendido é desativado, não apagado.
             abort_if(
                 $product->orderItems()->exists(),
                 409,

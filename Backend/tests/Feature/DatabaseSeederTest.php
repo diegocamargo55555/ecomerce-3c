@@ -33,6 +33,9 @@ class DatabaseSeederTest extends TestCase
         }
         $this->assertEqualsCanonicalizing(['pendente', 'pago', 'enviado', 'entregue', 'cancelado'], Order::pluck('status')->all());
 
+        foreach (DB::table('categories')->pluck('image_url') as $url) {
+            $this->assertFileExists(public_path($url));
+        }
         foreach (Product::all() as $product) {
             $this->assertFileExists(public_path(parse_url($product->image_url, PHP_URL_PATH)));
         }
