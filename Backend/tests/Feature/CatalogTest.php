@@ -128,5 +128,10 @@ class CatalogTest extends TestCase
         $this->getJson('/api/categories')->assertOk()
             ->assertJsonPath('data.0.image_url', '/images/products/barato.jpg')
             ->assertJsonPath('data.1.image_url', null);
+
+        // Foto própria da categoria vence a do produto.
+        $id = $this->getJson('/api/categories')->json('data.0.id');
+        \App\Models\Category::findOrFail($id)->update(['image_url' => '/images/categories/propria.jpg']);
+        $this->getJson('/api/categories')->assertJsonPath('data.0.image_url', '/images/categories/propria.jpg');
     }
 }

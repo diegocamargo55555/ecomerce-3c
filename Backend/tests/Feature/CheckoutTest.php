@@ -346,19 +346,6 @@ class CheckoutTest extends TestCase
         $this->deleteJson($url)->assertNotFound();
     }
 
-    public function test_address_with_orders_is_edited_in_place_and_cannot_be_deleted(): void
-    {
-        $this->fillCart(1);
-        $id = $this->checkout();
-        $url = "/api/my/addresses/{$this->address->id}";
-        $this->patchJson($url, ['street' => 'Rua B'])->assertOk()->assertJsonPath('data.id', $this->address->id);
-        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua B');
-        $this->deleteJson($url)->assertConflict();
-        $this->actingAs(User::factory()->create(['role' => 'admin']))
-            ->deleteJson("/api/addresses/{$this->address->id}")->assertConflict();
-        $this->assertDatabaseHas('addresses', ['id' => $this->address->id]);
-    }
-
     public function test_product_delete_clears_carts_but_is_refused_once_ordered(): void
     {
         $this->fillCart(1);

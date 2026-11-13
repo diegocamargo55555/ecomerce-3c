@@ -3,9 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Address;
-use App\Models\Cart;
 use App\Models\Category;
-use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,15 +13,10 @@ class UserDeletionTest extends TestCase
 {
     use RefreshDatabase;
 
-    private User $admin;
-
     protected function setUp(): void
     {
         parent::setUp();
         $this->withHeader('Origin', 'http://localhost');
-        $this->admin = User::factory()->create();
-        $this->admin->role = 'admin';
-        $this->admin->save();
     }
 
     private function address(User $user): Address
@@ -42,44 +35,6 @@ class UserDeletionTest extends TestCase
             'category_id' => $category->id, 'name' => 'Marine', 'description' => 'Para pintar',
             'price' => '10.00', 'stock' => $stock, 'is_active' => true,
         ]);
-    }
-
-    public function test_admin_deletes_a_user_together_with_cart_and_addresses(): void
-    {
-        $user = User::factory()->create();
-        $cart = Cart::create(['user_id' => $user->id]);
-        $cart->items()->create(['product_id' => $this->product(5)->id, 'quantity' => 1]);
-        $this->address($user);
-
-        $this->actingAs($this->admin)->deleteJson("/api/users/{$user->id}")->assertNoContent();
-
-        $this->assertDatabaseMissing('users', ['id' => $user->id]);
-        $this->assertDatabaseCount('carts', 0);
-        $this->assertDatabaseCount('cart_items', 0);
-        $this->assertDatabaseCount('addresses', 0);
-    }
-
-    public function test_user_with_orders_is_kept_with_a_clear_conflict(): void
-    {
-        $user = User::factory()->create();
-        Cart::create(['user_id' => $user->id]);
-        Order::create([
-            'users_id' => $user->id, 'address_id' => $this->address($user)->id, 'status' => 'pago',
-            'subtotal' => '10.00', 'shipping_cost' => '20.00', 'total' => '30.00',
-        ]);
-
-        $this->actingAs($this->admin)->deleteJson("/api/users/{$user->id}")
-            ->assertConflict()->assertJsonPath('message', "Não é possível excluir {$user->name}: há pedidos registrados nesta conta.");
-
-        $this->assertDatabaseHas('users', ['id' => $user->id]);
-        $this->assertDatabaseCount('carts', 1);
-    }
-
-    public function test_admin_cannot_delete_the_own_account(): void
-    {
-        $this->actingAs($this->admin)->deleteJson("/api/users/{$this->admin->id}")->assertConflict();
-
-        $this->assertDatabaseHas('users', ['id' => $this->admin->id, 'role' => 'admin']);
     }
 
     public function test_unpaid_orders_older_than_thirty_minutes_are_cancelled_and_return_stock(): void

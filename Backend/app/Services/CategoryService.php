@@ -11,8 +11,8 @@ class CategoryService
 {
     public function listAll(): Collection
     {
-        // A categoria não tem foto própria: usa a do primeiro produto ativo com foto.
-        return Category::addSelect(['image_url' => Product::select('image_url')
+        // Sem foto própria, a categoria usa a do primeiro produto ativo com foto.
+        return Category::addSelect(['product_image_url' => Product::select('image_url')
             ->whereColumn('category_id', 'categories.id')
             ->where('is_active', true)
             ->whereNotNull('image_url')

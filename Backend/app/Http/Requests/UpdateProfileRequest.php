@@ -19,7 +19,7 @@ class UpdateProfileRequest extends FormRequest
             'id' => ['missing'],
             'password' => ['missing'],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->user()->id)],
+            'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->user())],
             'current_password' => [Rule::requiredIf($this->has('email') && $this->input('email') !== $this->user()->email), 'nullable', 'string', 'current_password:web'],
         ];
     }
