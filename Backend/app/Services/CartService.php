@@ -31,13 +31,13 @@ class CartService
 
     public function details(Cart $cart): Cart
     {
-        $cart->load(['items.product' => fn ($query) => $query->withTrashed()]);
+        $cart->load('items.product');
         $total = '0.00';
         foreach ($cart->items as $item) {
             $product = $item->product;
             $item->subtotal = bcmul($product->price, (string) $item->quantity, 2);
             $item->unavailable_reason = match (true) {
-                $product->trashed() || ! $product->is_active => 'Produto indisponível.',
+                ! $product->is_active => 'Produto indisponível.',
                 $product->stock === 0 => 'Produto sem estoque.',
                 $item->quantity > $product->stock => "Estoque disponível: {$product->stock} unidade(s). Ajuste a quantidade.",
                 default => null,
@@ -66,13 +66,13 @@ class CartService
             }
 
             $items = Cart_item::whereIn('cart_id', [$cart->id, $guest->id])->get()->groupBy('product_id');
-            $products = Product::withTrashed()->whereIn('id', $items->keys())
+            $products = Product::whereIn('id', $items->keys())
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $warnings = [];
             foreach ($items as $productId => $lines) {
                 $product = $products[$productId];
                 $requested = $lines->sum('quantity');
-                $quantity = $product->is_active && ! $product->trashed()
+                $quantity = $product->is_active
                     ? min($requested, $product->stock) : 0;
                 if ($quantity === 0) {
                     $cart->items()->where('product_id', $productId)->delete();
@@ -95,26 +95,8 @@ class CartService
         return Cart::all();
     }
 
-    public function create(array $data): Cart
-    {
-        return Cart::create($data);
-    }
-
     public function findById(int $id): Cart
     {
         return Cart::findOrFail($id);
-    }
-
-    public function update(int $id, array $data): Cart
-    {
-        $cart = Cart::findOrFail($id);
-        $cart->update($data);
-
-        return $cart;
-    }
-
-    public function delete(int $id): void
-    {
-        Cart::findOrFail($id)->delete();
     }
 }

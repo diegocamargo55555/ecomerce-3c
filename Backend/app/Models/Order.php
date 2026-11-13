@@ -27,7 +27,7 @@ class Order extends Model
 
     public function address(): BelongsTo
     {
-        return $this->belongsTo(Address::class)->withTrashed();
+        return $this->belongsTo(Address::class);
     }
 
     public function user(): BelongsTo

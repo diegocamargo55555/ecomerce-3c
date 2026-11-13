@@ -27,6 +27,7 @@ class UpdateCategoryRequest extends FormRequest
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'slug' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('categories', 'slug')->ignore((int) $this->route('category'))],
             'description' => ['sometimes', 'nullable', 'string'],
+            'image_url' => ['sometimes', 'nullable', 'string', 'max:255', Rule::when(! str_starts_with((string) $this->input('image_url'), '/'), ['url'])],
         ];
     }
 }

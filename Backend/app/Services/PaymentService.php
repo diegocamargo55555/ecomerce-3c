@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentService
 {
-    public function __construct(private OrderService $orderService) {}
-
     public function pay(int $id, User $user): Order
     {
         return DB::transaction(function () use ($id, $user) {
@@ -19,33 +17,6 @@ class PaymentService
             abort_unless($order->users_id === $user->id, 403);
 
             return $this->confirm($order);
-        }, 3);
-    }
-
-    public function create(array $data): Payment
-    {
-        return DB::transaction(function () use ($data) {
-            $order = Order::lockForUpdate()->findOrFail($data['order_id']);
-            abort_unless($order->status === 'pendente', 409, 'Este pedido não está aguardando pagamento.');
-            abort_if($order->payments()->exists(), 409, 'Este pedido já possui um pagamento.');
-
-            return $order->payments()->create(['status' => 'pendente', 'amount' => $order->total]);
-        }, 3);
-    }
-
-    public function update(int $id, string $status, User $user): Payment
-    {
-        return DB::transaction(function () use ($id, $status, $user) {
-            $payment = Payment::findOrFail($id);
-            $order = Order::lockForUpdate()->findOrFail($payment->order_id);
-            if ($status === 'cancelado') {
-                $this->orderService->cancel($order->id, $user);
-            } else {
-                abort_unless($status === 'pago', 409, 'Transição de pagamento inválida.');
-                $this->confirm($order);
-            }
-
-            return $payment->refresh();
         }, 3);
     }
 

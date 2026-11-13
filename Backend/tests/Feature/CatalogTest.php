@@ -26,10 +26,6 @@ class CatalogTest extends TestCase
         ] as $product) {
             Product::unguarded(fn () => Product::create($product + ['description' => 'Modelo para pintar']));
         }
-        Product::create([
-            'name' => 'Marine excluído', 'description' => 'Excluído', 'price' => '1.00',
-            'category_id' => $category->id, 'stock' => 1, 'is_active' => true,
-        ])->delete();
     }
 
     public function test_public_catalog_filters_inactive_and_deleted_products_and_paginates(): void
@@ -83,8 +79,7 @@ class CatalogTest extends TestCase
 
     public function test_inactive_deleted_and_missing_product_details_return_404_even_for_admin(): void
     {
-        $ids = Product::withTrashed()->where(fn ($query) => $query
-            ->where('is_active', false)->orWhereNotNull('deleted_at'))->pluck('id');
+        $ids = Product::where('is_active', false)->pluck('id');
         foreach ([...$ids, 999999, 'invalid'] as $id) {
             $this->getJson("/api/products/{$id}")->assertNotFound();
         }
@@ -98,11 +93,6 @@ class CatalogTest extends TestCase
     {
         $withProducts = Category::where('slug', 'tintas')->firstOrFail();
         $empty = Category::create(['name' => 'Vazia', 'slug' => 'vazia']);
-        $onlyDeleted = Category::create(['name' => 'Arquivada', 'slug' => 'arquivada']);
-        Product::create([
-            'name' => 'Antigo', 'description' => 'Excluído', 'price' => '1.00',
-            'category_id' => $onlyDeleted->id, 'stock' => 1, 'is_active' => true,
-        ])->delete();
 
         $this->deleteJson("/api/categories/{$empty->id}")->assertUnauthorized();
         $this->actingAs(User::factory()->create())
@@ -112,9 +102,7 @@ class CatalogTest extends TestCase
         $this->deleteJson("/api/categories/{$withProducts->id}")
             ->assertStatus(409)
             ->assertJsonPath('message', 'Não é possível excluir a categoria Tintas: há 1 produto(s) vinculado(s). Mova ou exclua os produtos antes.');
-        $this->deleteJson("/api/categories/{$onlyDeleted->id}")->assertStatus(409);
         $this->assertDatabaseHas('categories', ['id' => $withProducts->id]);
-        $this->assertDatabaseHas('categories', ['id' => $onlyDeleted->id]);
         $this->assertDatabaseHas('products', ['category_id' => $withProducts->id]);
 
         $this->deleteJson("/api/categories/{$empty->id}")->assertNoContent();
@@ -129,5 +117,22 @@ class CatalogTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->getJson('/api/admin/products')->assertOk()->assertJsonCount(4, 'data');
         $this->getJson('/api/products')->assertJsonPath('meta.total', 3);
+    }
+
+    public function test_category_shows_only_its_own_image(): void
+    {
+        // Foto de produto não é emprestada à categoria.
+        Product::where('name', 'Marine barato')->update(['image_url' => '/images/products/barato.jpg']);
+        $id = Category::where('slug', 'miniaturas')->value('id');
+
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->patchJson("/api/categories/{$id}", ['image_url' => 'propria.jpg'])
+            ->assertUnprocessable()->assertJsonValidationErrors('image_url');
+        $this->patchJson("/api/categories/{$id}", ['image_url' => '/images/categories/propria.jpg'])
+            ->assertOk()->assertJsonPath('data.image_url', '/images/categories/propria.jpg');
+
+        $this->getJson('/api/categories')->assertOk()
+            ->assertJsonPath('data.0.image_url', '/images/categories/propria.jpg')
+            ->assertJsonPath('data.1.image_url', null);
     }
 }

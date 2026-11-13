@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { login } from "../src/api/auth/login.js";
-import { register } from "../src/api/auth/register.js";
-import { getCurrentUser } from "../src/api/auth/me.js";
-import { logout } from "../src/api/auth/logout.js";
+import { login } from "../src/requisicoes/auth/login.js";
+import { register } from "../src/requisicoes/auth/register.js";
+import { getCurrentUser } from "../src/requisicoes/auth/me.js";
+import { logout } from "../src/requisicoes/auth/logout.js";
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => {

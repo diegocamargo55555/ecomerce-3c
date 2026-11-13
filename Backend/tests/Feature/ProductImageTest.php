@@ -66,7 +66,7 @@ class ProductImageTest extends TestCase
         $this->assertCount(1, $files);
         $this->assertStringStartsWith('products/', $files[0]);
         $this->assertStringEndsWith('.png', $files[0]);
-        $this->assertSame(Storage::disk('public')->url($files[0]), $url);
+        $this->assertSame('/storage/'.$files[0], $url);
         $this->assertSame($url, $this->product->fresh()->image_url);
         $this->getJson("/api/products/{$this->product->id}")->assertJsonPath('data.image_url', $url);
     }
@@ -103,21 +103,6 @@ class ProductImageTest extends TestCase
         $this->assertCount(2, Storage::disk('public')->allFiles());
     }
 
-    public function test_replacing_an_image_preserves_a_soft_deleted_products_reference(): void
-    {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $url = $this->upload($this->png())->assertOk()->json('data.image_url');
-        $path = Storage::disk('public')->allFiles()[0];
-        $other = $this->product->fresh()->replicate();
-        $other->save();
-        $other->delete();
-
-        $this->upload($this->png('nova.png'))->assertOk();
-
-        Storage::disk('public')->assertExists($path);
-        $this->assertSame($url, $other->fresh()->image_url);
-    }
-
     public function test_upload_validates_the_file_and_the_product(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));
@@ -134,5 +119,15 @@ class ProductImageTest extends TestCase
         $this->upload($this->png())->assertNotFound();
 
         $this->assertSame([], Storage::disk('public')->allFiles());
+    }
+
+    public function test_image_url_accepts_a_local_path_or_a_full_url_only(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+
+        $this->patchJson("/api/products/{$this->product->id}", ['image_url' => '/images/products/foto.jpg'])
+            ->assertOk()->assertJsonPath('data.image_url', '/images/products/foto.jpg');
+        $this->patchJson("/api/products/{$this->product->id}", ['image_url' => 'foto.jpg'])
+            ->assertUnprocessable()->assertJsonValidationErrors('image_url');
     }
 }

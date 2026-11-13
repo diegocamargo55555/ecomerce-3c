@@ -6,6 +6,7 @@ use App\Models\Product;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class ProductService
@@ -44,7 +45,7 @@ class ProductService
 
     public function create(array $data): Product
     {
-        return Product::create($data);
+        return Product::create($data)->refresh();
     }
 
     public function findPublicById(int $id): Product
@@ -60,11 +61,6 @@ class ProductService
         return $product;
     }
 
-    /**
-     * Grava o arquivo no disco "public" (storage/app/public/products), que o
-     * Compose mantém em um volume, e aponta image_url para ele. A imagem enviada
-     * anteriormente é apagada se nenhum produto a usa; URLs externas e fotos dos seeders não são tocadas.
-     */
     public function updateImage(int $id, UploadedFile $file): Product
     {
         $product = Product::findOrFail($id);
@@ -76,14 +72,14 @@ class ProductService
         abort_if($path === false, 500, 'Não foi possível gravar a imagem.');
 
         try {
-            $product->update(['image_url' => $disk->url($path)]);
+            $product->update(['image_url' => '/storage/'.$path]);
         } catch (\Throwable $exception) {
             $disk->delete($path);
             throw $exception;
         }
 
         if ($previous !== null && $previous !== $path
-            && ! Product::withTrashed()->where('image_url', $previousUrl)->exists()) {
+            && ! Product::where('image_url', $previousUrl)->exists()) {
             $disk->delete($previous);
         }
 
@@ -92,14 +88,21 @@ class ProductService
 
     private function uploadedImagePath(?string $url): ?string
     {
-        $prefix = Storage::disk('public')->url('products/');
-
-        return $url !== null && str_starts_with($url, $prefix)
+        return $url !== null && str_starts_with($url, '/storage/products/')
             ? 'products/'.basename($url) : null;
     }
 
     public function delete(int $id): void
     {
-        Product::findOrFail($id)->delete();
+        DB::transaction(function () use ($id) {
+            $product = Product::lockForUpdate()->findOrFail($id);
+            abort_if(
+                $product->orderItems()->exists(),
+                409,
+                "Não é possível excluir {$product->name}: há pedidos com este produto. Desative o produto."
+            );
+            $product->cartItems()->delete();
+            $product->delete();
+        });
     }
 }

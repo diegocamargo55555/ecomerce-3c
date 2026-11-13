@@ -1,87 +1,31 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from "vue";
-import { getOrder, payOrder, cancelOrder, updateOrderStatus } from "../api/http.js";
-import { currency, date, resources } from "../resources.js";
+import { currency, date } from "../manipulacao/formatacao.js";
 import Icon from "./Icon.vue";
 import Modal from "./Modal.vue";
+import { useOrder } from "../manipulacao/useOrder.js";
 
 const props = defineProps({ orderId: String, user: Object });
-const order = ref(null);
-const loading = ref(true);
-const error = ref("");
-const actionError = ref("");
-const paying = ref(false);
-const cancelling = ref(false);
-const updatingStatus = ref(false);
-const confirmingCancel = ref(false);
-const notice = ref("");
-const noticeElement = ref(null);
-const busy = computed(() => paying.value || cancelling.value || updatingStatus.value);
-const nextStatus = computed(() => props.user?.role === "admin" ? ({ pago: "enviado", enviado: "entregue" }[order.value?.status] ?? null) : null);
-const canCancel = computed(() => order.value?.status === "pendente" && (props.user?.id === order.value.users_id || props.user?.role === "admin"));
-const statusNames = Object.fromEntries(resources.orders.fields.find(field => field.key === "status").options);
-const payment = computed(() => order.value?.payments.find(item => item.status === "pago"));
-
-async function load() {
-  loading.value = true;
-  error.value = "";
-  try {
-    order.value = await getOrder(props.orderId);
-  } catch (failure) {
-    error.value = failure.message;
-  } finally {
-    loading.value = false;
-  }
-}
-async function pay() {
-  if (busy.value || confirmingCancel.value) return;
-  paying.value = true;
-  actionError.value = "";
-  try {
-    order.value = await payOrder(props.orderId);
-  } catch (failure) {
-    actionError.value = failure.message;
-    if (failure.status === 409) await load();
-  } finally {
-    paying.value = false;
-  }
-}
-async function cancel() {
-  if (busy.value) return;
-  cancelling.value = true;
-  actionError.value = "";
-  try {
-    order.value = await cancelOrder(props.orderId);
-    notice.value = "Pedido cancelado. Os itens foram devolvidos ao estoque.";
-    confirmingCancel.value = false;
-  } catch (failure) {
-    actionError.value = failure.message;
-    if (failure.status === 409 || failure.status === 404) {
-      confirmingCancel.value = false;
-      await load();
-    }
-  } finally {
-    cancelling.value = false;
-  }
-}
-async function advanceStatus() {
-  if (busy.value || confirmingCancel.value || !nextStatus.value) return;
-  updatingStatus.value = true;
-  actionError.value = "";
-  notice.value = "";
-  try {
-    order.value = await updateOrderStatus(props.orderId, nextStatus.value);
-    notice.value = `Status atualizado: ${statusNames[order.value.status]}.`;
-    await nextTick();
-    noticeElement.value?.focus({ preventScroll: true });
-  } catch (failure) {
-    actionError.value = failure.message;
-    if (failure.status === 409 || failure.status === 404) await load();
-  } finally {
-    updatingStatus.value = false;
-  }
-}
-onMounted(load);
+const {
+  order,
+  loading,
+  error,
+  actionError,
+  paying,
+  cancelling,
+  updatingStatus,
+  confirmingCancel,
+  notice,
+  noticeElement,
+  busy,
+  nextStatus,
+  canCancel,
+  statusNames,
+  payment,
+  load,
+  pay,
+  cancel,
+  advanceStatus,
+} = useOrder(props);
 </script>
 
 <template>
@@ -97,7 +41,7 @@ onMounted(load);
     </div>
     <template v-else-if="order">
       <header class="order-heading">
-        <div><span class="eyebrow">3C COMMERCE / SEU PEDIDO</span><h1>Pedido #{{ order.id }}</h1><p class="muted">Criado em {{ date(order.created_at) }}</p></div>
+        <div><span class="eyebrow">40K / SEU PEDIDO</span><h1>Pedido #{{ order.id }}</h1><p class="muted">Criado em {{ date(order.created_at) }}</p></div>
         <span class="badge" :class="order.status === 'cancelado' ? 'danger' : payment ? 'success' : 'warning'">{{ statusNames[order.status] || order.status }}</span>
       </header>
       <div class="order-layout">
@@ -169,7 +113,7 @@ onMounted(load);
 .order-totals > div { display: flex; justify-content: space-between; gap: 16px; }
 .order-totals dd { margin: 0; }
 .order-total { font-size: 24px; font-weight: 700; padding-top: 16px; border-top: 1px solid var(--border); }
-.order-paid { display: flex; align-items: center; gap: 8px; color: #157447; }
+.order-paid { display: flex; align-items: center; gap: 8px; color: #6fcf97; }
 @media (max-width: 800px) { .order-layout { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 500px) { .order-details, .order-payment { padding: 18px; } .order-heading { align-items: flex-start; flex-direction: column; } }
 </style>

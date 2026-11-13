@@ -1,4 +1,4 @@
-# 3C Commerce
+# 40K
 
 Catálogo em Vue 3, API Laravel com sessão Sanctum e MySQL. A aplicação local é acessada por **http://localhost**, na porta 80 do Nginx.
 
@@ -45,6 +45,10 @@ Abra **http://localhost/#login** para entrar ou cadastrar um cliente. Clientes s
 ## Proxy, sessão e permissões
 
 `proxy/default.conf` é a configuração do Nginx montada pelo Compose. `/api/`, `/sanctum/`, `/images/` e `/storage/` vão para `php:8000`; os demais caminhos vão para `frontend:5173`, incluindo o WebSocket do Vite. As portas 8000 e 5173 ficam apenas na rede dos containers. O proxy aguarda o PHP saudável e o frontend iniciado. O volume do MySQL e os arquivos de imagens/storage montados em `Backend/` são preservados ao recriar containers; não use `docker compose down -v` para atualizar.
+
+A imagem de produção (`Backend/Dockerfile`) define `SESSION_SECURE_COOKIE=true`: os cookies de sessão e CSRF só trafegam por HTTPS, então o site público precisa ser acessado por HTTPS. O Compose local mantém `false` para funcionar em http://localhost.
+
+O MySQL não publica porta no host; para consultas use `docker compose exec mysql mysql -u ecomerce -p ecomerce`.
 
 O navegador usa caminhos relativos na origem pública. O Nginx preserva Cookie, Set-Cookie, Origin e Referer e encaminha Host e os cabeçalhos de proxy. O Laravel valida sessão e CSRF: antes de escrever, o cliente consulta `/sanctum/csrf-cookie`, envia cookies com `credentials: "include"` e o token em `X-XSRF-TOKEN`. Após 419, renova o CSRF e repete a chamada uma única vez. Senhas e tokens de autenticação não são guardados em localStorage.
 
@@ -101,15 +105,15 @@ Os cinco status estão definidos diretamente na migration que cria `orders`. O c
 
 No painel **Produtos**, o formulário de criação e edição tem o campo **Imagem do produto**: escolha um arquivo JPG, PNG ou WebP de até 2 MB. O campo de URL externa continua disponível; se os dois forem preenchidos, o arquivo enviado prevalece. O painel salva o produto e, em seguida, envia o arquivo; se o envio falhar, o produto permanece salvo e o formulário avisa.
 
-`POST /api/admin/products/{id}/image` (somente admin) recebe o arquivo no campo `image` em `multipart/form-data`. O tipo é validado pelo conteúdo, o nome é gerado pelo servidor e `image_url` passa a apontar para `/storage/products/<nome>`. A imagem enviada anteriormente só é apagada quando nenhum outro produto, inclusive excluído logicamente, usa a mesma URL; URLs externas e as fotos dos seeders em `Backend/public/images/products` não são alteradas. Arquivo ausente, de outro tipo ou acima de 2 MB retorna 422; produto inexistente ou excluído retorna 404.
+`POST /api/admin/products/{id}/image` (somente admin) recebe o arquivo no campo `image` em `multipart/form-data`. O tipo é validado pelo conteúdo, o nome é gerado pelo servidor e `image_url` passa a ser `/storage/products/<nome>`. A imagem enviada anteriormente só é apagada quando nenhum outro produto, inclusive excluído logicamente, usa a mesma URL; URLs externas e as fotos dos seeders em `Backend/public/images/products` não são alteradas. Arquivo ausente, de outro tipo ou acima de 2 MB retorna 422; produto inexistente ou excluído retorna 404.
 
-Os arquivos ficam em `storage/app/public`, montado no volume nomeado `product_images` do Compose, e por isso sobrevivem à recriação do container (`docker compose up -d --force-recreate php`). Eles só são apagados com `docker compose down -v`. Ao iniciar, o container executa `php artisan storage:link`, que cria `public/storage`; o Nginx já encaminha `/storage/` para a API e aceita corpos de até 5 MB (`client_max_body_size`). A URL gravada usa `APP_URL` como origem.
+Os arquivos ficam em `storage/app/public`, montado no volume nomeado `product_images` do Compose, e por isso sobrevivem à recriação do container (`docker compose up -d --force-recreate php`). Eles só são apagados com `docker compose down -v`. Ao iniciar, o container executa `php artisan storage:link`, que cria `public/storage`; o Nginx já encaminha `/storage/` para a API e aceita corpos de até 5 MB (`client_max_body_size`). A URL gravada é só o caminho, sem domínio, e continua válida se o endereço do site mudar; a migration `2026_11_10_120000` converte as URLs antigas cujo arquivo existe no servidor.
 
 ## Página pública do produto
 
 Clique na imagem, no nome ou em “Ver detalhes” para abrir `/#products/ID`. O endereço pode ser compartilhado e recarregado sem login. A página consulta `GET /api/products/{id}` e exibe nome, imagem, descrição, categoria, preço e estoque. Produtos inexistentes, inativos ou excluídos retornam 404. Produtos ativos sem estoque continuam visíveis, com a compra desabilitada.
 
-O botão “Adicionar ao carrinho” envia `product_id` e `quantity` para `POST /api/cart/items`. A API identifica a conta pela sessão autenticada ou gera um identificador aleatório guardado na sessão do visitante. O cliente não escolhe o carrinho. Quantidades repetidas são somadas no banco; a soma não pode ultrapassar o estoque e a quantidade deve ser inteira e positiva (422 em caso de erro). A operação usa transação e bloqueio dos registros, sem baixar estoque nesta etapa. O identificador de visitante não é retornado ao navegador; os cookies e o CSRF seguem o mesmo fluxo da autenticação.
+O botão “Adicionar ao carrinho” envia `product_id` e `quantity` para `POST /api/cart/items`. A API identifica a conta pela sessão autenticada ou gera um identificador aleatório guardado na sessão do visitante ao adicionar o primeiro item; só consultar `GET /api/cart` não grava carrinho. `php artisan carts:prune-guests`, agendado diariamente, remove carrinhos de visitante sem alterações há mais de 7 dias. O cliente não escolhe o carrinho. Quantidades repetidas são somadas no banco; a soma não pode ultrapassar o estoque e a quantidade deve ser inteira e positiva (422 em caso de erro). A operação usa transação e bloqueio dos registros, sem baixar estoque nesta etapa. O identificador de visitante não é retornado ao navegador; os cookies e o CSRF seguem o mesmo fluxo da autenticação.
 
 ## Carrinho e fusão no login
 
@@ -121,7 +125,7 @@ A regra de fusão, executada no login **e** no cadastro, é:
 
 1. O servidor recupera o identificador de visitante guardado na sessão; não aceita um token informado no corpo da requisição.
 2. Produtos presentes nos dois carrinhos têm suas quantidades somadas. Produtos presentes em apenas um são mantidos.
-3. A fusão revalida todos os produtos dos dois carrinhos. A quantidade é limitada ao estoque atual; produtos inativos, excluídos ou sem estoque são removidos. Cada ajuste ou remoção gera um aviso em `cart_warnings`, ao lado de `data` na resposta de autenticação, exibido no frontend.
+3. A fusão revalida todos os produtos dos dois carrinhos. A quantidade é limitada ao estoque atual; produtos inativos ou sem estoque são removidos. Cada ajuste ou remoção gera um aviso em `cart_warnings`, ao lado de `data` na resposta de autenticação, exibido no frontend.
 4. A fusão é transacional, descarta o carrinho visitante com seus itens, remove o identificador da sessão e regenera a sessão invalidando a anterior. Login ou cadastro inválido preserva o carrinho visitante.
 5. O carrinho da conta permanece no banco entre sessões e dispositivos. Logout não apaga esse carrinho.
 
@@ -138,16 +142,7 @@ A criação usa uma transação com bloqueio do carrinho, dos itens e dos produt
 
 A página `/#order/ID` mostra o pedido, seus itens congelados, endereço, frete e total. O dono encontra a ação **Confirmar pagamento simulado**. `POST /api/orders/{id}/pay` não recebe valor, dados de cartão ou gateway; em uma transação, usa o total gravado no pedido, registra a data/hora no pagamento e altera o pedido para pago. Uma segunda tentativa ou pedido fora de pendente retorna 409; outro usuário, inclusive admin de outro pedido, recebe 403. O pagamento não baixa estoque novamente. O dono e admins podem consultar o detalhe por `GET /api/orders/{id}`.
 
-Pedidos, itens e pagamentos ficam disponíveis para consulta no painel, com link para o detalhe do pedido. A API também permite as operações administrativas abaixo, usando os Requests de criação e atualização. Elas exigem sessão, CSRF e papel `admin`; o painel mantém as tabelas desses registros para consulta. A edição genérica e a exclusão de pedidos continuam indisponíveis; o status usa `UpdateOrderRequest` na rota própria.
-
-| Operação administrativa | Dados aceitos e comportamento |
-| --- | --- |
-| `POST /api/order-items` | `order_id`, `product_id`, `quantity`: acrescenta um item a pedido pendente, congela nome/preço atuais e reserva estoque. |
-| `PATCH/PUT /api/order-items/{id}` | `quantity`: altera a quantidade em pedido pendente, mantendo produto e preço congelados. Reserva ou devolve somente a diferença de estoque. |
-| `POST /api/payments` | `order_id`, com `status` opcional igual a `pendente`: cria o pagamento pendente de um pedido que ainda não possui pagamento, pelo total gravado no pedido. O checkout normal já cria esse registro. |
-| `PATCH/PUT /api/payments/{id}` | `status`: `pago` confirma o pagamento simulado; `cancelado` cancela o pedido pendente e devolve seu estoque. Repetições e outras transições retornam 409. |
-
-Valores financeiros, nomes e datas enviados nessas operações não substituem os dados calculados pelo servidor. A criação e edição de itens recalculam subtotal, total e valor do pagamento em decimal, preservando o frete. Somente produtos ativos e com estoque podem ser acrescentados ou ter a quantidade aumentada; reduzir a quantidade de um item indisponível continua permitido. Pedidos fora de pendente ou com pagamento já processado retornam 409. Falhas de estoque ou limite monetário retornam 422. Cada operação usa transação e bloqueios, compartilhando o bloqueio do pedido com pagamento e cancelamento; falhas desfazem todas as alterações. As criações retornam 201 e as edições 200, com o registro dentro de `data`. Exclusões de itens e pagamentos continuam indisponíveis.
+Pedidos, itens e pagamentos ficam disponíveis somente para consulta no painel e na API (`GET /api/orders`, `/api/order-items`, `/api/payments`), com link para o detalhe do pedido. Não há criação, edição ou exclusão direta desses registros: o pedido nasce no checkout, o pagamento é confirmado pelo dono, o cancelamento devolve o estoque e o status usa `UpdateOrderRequest` na rota própria.
 
 A unicidade de `payments.order_id` está definida na migration original de pagamentos; instalações novas já recebem o índice. Bases antigas sem ele precisam desse ajuste, pois editar uma migration já executada não altera o schema.
 
@@ -177,7 +172,7 @@ Abra **http://localhost/#profile** pelo link “Perfil” ou pelo ícone da cont
 
 Na mesma tela, é possível cadastrar, editar e excluir os próprios endereços. `GET/POST /api/my/addresses` lista/cadastra; `PATCH/DELETE /api/my/addresses/{id}` edita/exclui. Endereço alheio, inexistente ou excluído retorna 404, inclusive para admins nessas rotas pessoais. `users_id` não é aceito em edições pessoais; o CRUD administrativo mantém sua autorização separada.
 
-A coluna `addresses.deleted_at` é criada diretamente em `2026_10_22_133440_create_addresses_table.php`, com `$table->softDeletes()`. Não há migration adicional para essa coluna. Em uma base de desenvolvimento antiga que possa ser apagada, execute `docker compose exec php php artisan migrate:fresh --seed --force`: isso apaga todos os dados e recria as tabelas com os exemplos. O banco local foi recriado dessa forma. Endereços excluídos ficam ocultos na conta e no checkout, mas continuam disponíveis nos pedidos. Ao editar um endereço já utilizado, a API devolve uma nova versão com **outro ID** e arquiva a anterior na mesma transação. O frontend utiliza o ID devolvido; novas compras usam a versão atual, enquanto pedidos existentes conservam os dados originais. A mesma proteção vale para edição e exclusão administrativas. Seeders não restauram os endereços excluídos.
+Não há exclusão lógica (soft delete): excluir apaga a linha do banco. Endereço já usado em pedido não pode ser excluído (409) e, ao ser editado, é alterado no próprio registro, de modo que os pedidos antigos passam a exibir o endereço atualizado. Produto com pedidos também não pode ser excluído (409): desative-o com `is_active`; produto sem pedidos é apagado junto com os itens de carrinho que o referenciam. Em uma base de desenvolvimento antiga, que ainda tenha as colunas `deleted_at`, execute `docker compose exec php php artisan migrate:fresh --seed --force`: isso apaga todos os dados e recria as tabelas com os exemplos.
 
 Os testes verificam isolamento entre contas, validação, senha atual na alteração de e-mail, manutenção da sessão, versionamento, checkout com o novo ID e rollback. Alterações no endereço feitas antes desta versão não podem ser reconstruídas retroativamente.
 

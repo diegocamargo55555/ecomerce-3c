@@ -25,18 +25,6 @@ const relation = (key, label, resource, extra = {}) => ({
   required: true,
   ...extra,
 });
-const status = {
-  key: "status",
-  label: "Status",
-  type: "select",
-  required: true,
-  default: "pendente",
-  options: [
-    ["pendente", "Pendente"],
-    ["pago", "Pago"],
-    ["cancelado", "Cancelado"],
-  ],
-};
 const col = (key, label, format) => ({ key, label, format });
 
 export const resources = {
@@ -65,8 +53,8 @@ export const resources = {
         wide: true,
         hint: "JPG, PNG ou WebP de até 2 MB. O arquivo enviado substitui a imagem atual.",
       },
+      // Texto, não "url": imagens enviadas ficam como caminho (/storage/...), que um campo "url" recusa.
       text("image_url", "Ou URL de uma imagem externa", {
-        type: "url",
         required: false,
         wide: true,
       }),
@@ -99,6 +87,7 @@ export const resources = {
         max: undefined,
         wide: true,
       }),
+      text("image_url", "URL da imagem", { required: false, wide: true }),
     ],
     columns: [
       col("name", "Categoria", "strong"),
@@ -113,23 +102,8 @@ export const resources = {
     singular: "pedido",
     icon: "orders",
     description: "Acompanhe cada pedido, do início ao fim.",
-    fields: [
-      relation("users_id", "Cliente", "users"),
-      relation("address_id", "Endereço", "addresses"),
-      {
-        ...status,
-        options: [
-          ["pendente", "Aguardando pagamento"],
-          ["pago", "Pago"],
-          ["enviado", "Enviado"],
-          ["entregue", "Entregue"],
-          ["cancelado", "Cancelado"],
-        ],
-      },
-      money("subtotal", "Subtotal (R$)"),
-      money("shipping_cost", "Frete (R$)"),
-      money("total", "Total (R$)"),
-    ],
+    // Somente consulta: os campos servem apenas para carregar os nomes usados nas colunas.
+    fields: [relation("users_id", "Cliente", "users")],
     columns: [
       col("id", "Pedido", "id"),
       col("users_id", "Cliente", "users"),
@@ -146,14 +120,7 @@ export const resources = {
     icon: "orders",
     description: "Consulte e organize os produtos de cada pedido.",
     parent: "orders",
-    fields: [
-      relation("order_id", "Pedido", "orders"),
-      relation("product_id", "Produto", "products"),
-      text("product_name", "Nome do produto no pedido", { wide: true }),
-      money("unit_price", "Preço unitário (R$)"),
-      number("quantity", "Quantidade", { min: 1, default: 1 }),
-      money("subtotal", "Subtotal (R$)"),
-    ],
+    fields: [],
     columns: [
       col("order_id", "Pedido", "id"),
       col("product_name", "Produto", "strong"),
@@ -203,17 +170,7 @@ export const resources = {
     singular: "pagamento",
     icon: "wallet",
     description: "Tenha clareza sobre os pagamentos registrados.",
-    fields: [
-      relation("order_id", "Pedido", "orders"),
-      status,
-      money("amount", "Valor (R$)"),
-      {
-        key: "paid_at",
-        label: "Data do pagamento",
-        type: "datetime-local",
-        required: false,
-      },
-    ],
+    fields: [],
     columns: [
       col("id", "Pagamento", "id"),
       col("order_id", "Pedido", "id"),
@@ -280,31 +237,3 @@ export const navigation = [
   { label: "OPERAÇÃO", items: ["orders", "carts", "payments"] },
   { label: "CADASTROS", items: ["users", "addresses"] },
 ];
-
-export const currency = (value) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-    Number(value) || 0,
-  );
-
-export const date = (value) =>
-  value && !Number.isNaN(new Date(value).getTime())
-    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(
-        new Date(value),
-      )
-    : "—";
-export const initials = (value = "") =>
-  value
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase() || "3C";
-
-export function relationLabel(key, record) {
-  if (key === "addresses")
-    return `${record.recipient_name} · ${record.street}, ${record.number}`;
-  if (key === "orders" || key === "carts")
-    return `#${String(record.id).padStart(4, "0")}`;
-  return record.name || `#${record.id}`;
-}

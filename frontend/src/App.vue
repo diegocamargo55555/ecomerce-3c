@@ -1,187 +1,44 @@
 <script setup>
-import {
-  computed,
-  onMounted,
-  onBeforeUnmount,
-  ref,
-  watch,
-  nextTick,
-} from "vue";
-import { getCurrentUser } from "./api/auth/me.js";
-import { logout } from "./api/auth/logout.js";
-import { resources, navigation, initials } from "./resources.js";
+import { resources, navigation } from "./resources.js";
+import { initials } from "./manipulacao/formatacao.js";
 import AuthView from "./components/AuthView.vue";
 import OverviewView from "./components/OverviewView.vue";
 import ResourceView from "./components/ResourceView.vue";
 import CatalogView from "./components/CatalogView.vue";
 import Icon from "./components/Icon.vue";
+import { useApp } from "./manipulacao/useApp.js";
 
-const user = ref(null);
-const starting = ref(true);
-const startError = ref("");
-const notice = ref("");
-const page = ref("products");
-const productId = computed(() =>
-  page.value.startsWith("products/") ? page.value.slice(9) : "",
-);
-const orderId = computed(() => page.value.startsWith("order/") ? page.value.slice(6) : "");
-const customerPage = computed(() => ["checkout", "my-orders", "profile"].includes(page.value) || !!orderId.value);
-const afterLogin = ref("cart");
-const menuOpen = ref(false);
-const compactLayout = window.matchMedia("(max-width: 760px)");
-const mobile = ref(compactLayout.matches);
-const originalOverflow = document.body.style.overflow;
-const signingOut = ref(false);
-const toast = ref(null);
-let toastTimer;
-const resourceKey = computed(() => page.value.replace(/^manage-/, ""));
-const title = computed(
-  () =>
-    page.value === "login"
-      ? "Sua conta"
-      : page.value === "cart" ? "Meu carrinho"
-      : page.value === "checkout" ? "Finalizar compra"
-      : page.value === "my-orders" ? "Meus pedidos"
-      : page.value === "profile" ? "Meu perfil"
-      : orderId.value ? `Pedido #${orderId.value}`
-      : productId.value ? "Produto" : resources[resourceKey.value]?.title || "Visão geral",
-);
-const activeKey = computed(
-  () => resources[resourceKey.value]?.parent || resourceKey.value,
-);
-const publicPage = computed(() =>
-  ["products", "categories", "cart"].includes(page.value) || !!productId.value,
-);
-const isAdmin = computed(() => user.value?.role === "admin");
-
-function managementPage(key) {
-  return ["products", "categories"].includes(key) ? `manage-${key}` : key;
-}
-function navigateManagement(key) {
-  navigate(managementPage(key));
-}
-
-function syncRoute() {
-  const key = window.location.hash.slice(1);
-  page.value =
-    Object.hasOwn(resources, key) ||
-    /^products\/[^/]+$/.test(key) ||
-    /^order\/[^/]+$/.test(key) ||
-    ["login", "cart", "checkout", "my-orders", "profile", "overview", "manage-products", "manage-categories"].includes(key)
-      ? key
-      : "products";
-  if (!starting.value && !startError.value) {
-    if (page.value === "login" && user.value) {
-      navigate(isAdmin.value ? "overview" : "products");
-      return;
-    }
-    if (customerPage.value && !user.value) {
-      afterLogin.value = page.value;
-      notice.value = "Entre na sua conta para continuar.";
-      navigate("login");
-      return;
-    }
-    if (!publicPage.value && !customerPage.value && page.value !== "login" && !isAdmin.value) {
-      notice.value = user.value
-        ? "O painel é exclusivo de administradores. Você pode navegar pelo catálogo."
-        : "Entre na sua conta para continuar.";
-      navigate(user.value ? "products" : "login");
-      return;
-    }
-  }
-  menuOpen.value = false;
-  document.title = `${title.value} · 3C Commerce`;
-}
-function navigate(key) {
-  window.location.hash = key;
-  syncRoute();
-}
-function notify(message, type = "success") {
-  clearTimeout(toastTimer);
-  toast.value = { message, type };
-  toastTimer = setTimeout(() => {
-    toast.value = null;
-  }, 5000);
-}
-function endSession(
-  message = "Sua sessão terminou. Entre novamente para continuar.",
-) {
-  user.value = null;
-  notice.value = message;
-  menuOpen.value = false;
-  toast.value = null;
-  navigate("products");
-}
-function expired() {
-  endSession();
-}
-function syncViewport(event) {
-  mobile.value = event.matches;
-  if (!event.matches) menuOpen.value = false;
-}
-function closeMenu(event) {
-  if (event.key === "Escape" && menuOpen.value) {
-    menuOpen.value = false;
-    nextTick(() => document.querySelector(".menu-toggle")?.focus());
-  }
-}
-watch([menuOpen, mobile], ([open, compact]) => {
-  document.body.style.overflow = open && compact ? "hidden" : originalOverflow;
-  if (open && compact)
-    nextTick(() => document.querySelector(".sidebar-close")?.focus());
-});
-async function start() {
-  starting.value = true;
-  startError.value = "";
-  try {
-    user.value = await getCurrentUser();
-  } catch (failure) {
-    if (failure.status !== 401) startError.value = failure.message;
-  } finally {
-    starting.value = false;
-    syncRoute();
-  }
-}
-function authenticated(value, warnings = []) {
-  user.value = value;
-  notice.value = warnings.join(" ");
-  if (isAdmin.value && warnings.length) notify(notice.value, "warning");
-  const destination = afterLogin.value;
-  afterLogin.value = "cart";
-  navigate(destination !== "cart" ? destination : isAdmin.value ? "overview" : "cart");
-}
-async function signOut() {
-  signingOut.value = true;
-  try {
-    await logout();
-    endSession("Você saiu da sua conta. Até a próxima!");
-  } catch (failure) {
-    notify(failure.message, "error");
-  } finally {
-    signingOut.value = false;
-  }
-}
-onMounted(() => {
-  syncRoute();
-  start();
-  window.addEventListener("hashchange", syncRoute);
-  window.addEventListener("session-expired", expired);
-  window.addEventListener("keydown", closeMenu);
-  compactLayout.addEventListener("change", syncViewport);
-});
-onBeforeUnmount(() => {
-  window.removeEventListener("hashchange", syncRoute);
-  window.removeEventListener("session-expired", expired);
-  window.removeEventListener("keydown", closeMenu);
-  compactLayout.removeEventListener("change", syncViewport);
-  document.body.style.overflow = originalOverflow;
-  clearTimeout(toastTimer);
-});
+const {
+  user,
+  starting,
+  startError,
+  notice,
+  page,
+  productId,
+  orderId,
+  customerPage,
+  menuOpen,
+  mobile,
+  signingOut,
+  toast,
+  resourceKey,
+  title,
+  activeKey,
+  publicPage,
+  isAdmin,
+  managementPage,
+  navigateManagement,
+  navigate,
+  notify,
+  start,
+  authenticated,
+  signOut,
+} = useApp();
 </script>
 
 <template>
   <div v-if="!publicPage && (starting || startError)" class="startup-screen">
-    <span class="brand-mark"><Icon name="bag" :size="26" /></span
+    <span class="brand-mark"><Icon name="omega" :size="26" /></span
     ><template v-if="starting"
       ><span class="spinner" />
       <p role="status">Preparando sua loja…</p></template
@@ -230,10 +87,9 @@ onBeforeUnmount(() => {
       aria-label="Navegação principal"
     >
       <a href="#products" class="brand" @click.prevent="navigate('products')"
-        ><span class="brand-mark"><Icon name="bag" :size="23" /></span
+        ><span class="brand-mark"><Icon name="omega" :size="23" /></span
         ><span
-          >3c<span class="brand-light">commerce</span
-          ><small>GESTÃO DA SUA LOJA</small></span
+          >40K<small>GESTÃO DA SUA LOJA</small></span
         ></a
       ><button
         class="icon-button sidebar-close"
@@ -243,7 +99,7 @@ onBeforeUnmount(() => {
         <Icon name="close" />
       </button>
       <div class="store-selector">
-        <span class="store-avatar">3C</span>
+        <span class="store-avatar">40K</span>
         <div><strong>Minha loja</strong><span>Seu espaço de gestão</span></div>
         <span class="store-status" title="Sessão ativa"></span>
       </div>
@@ -328,11 +184,10 @@ onBeforeUnmount(() => {
           @notify="notify"
           @navigate="navigateManagement"
           @user-updated="user = $event"
-          @self-deleted="endSession('Sua conta foi excluída.')"
         />
       </main>
       <footer class="workspace-footer">
-        <span>3c commerce</span><span>O essencial para a sua loja.</span>
+        <span>40K</span><span>O essencial para a sua loja.</span>
       </footer>
     </div>
   </div>

@@ -118,7 +118,7 @@ class ProductCartTest extends TestCase
         $this->patchJson("/api/cart/items/{$id}", ['quantity' => 0])
             ->assertOk()->assertJsonPath('data.total', '0.00')->assertJsonPath('data.items', []);
         $id = $this->postJson('/api/cart/items', ['product_id' => $this->product->id, 'quantity' => 1])->json('data.id');
-        $this->product->delete();
+        $this->product->update(['is_active' => false]);
         $this->getJson('/api/cart')->assertOk()->assertJsonPath('data.items.0.available', false);
         $this->deleteJson("/api/cart/items/{$id}")->assertOk()->assertJsonPath('data.item_count', 0);
     }
@@ -152,22 +152,33 @@ class ProductCartTest extends TestCase
         $this->getJson('/api/cart')->assertOk()->assertJsonPath('data.items.0.available', false);
     }
 
-    public function test_admin_forms_cannot_create_duplicate_carts_or_product_lines(): void
+    public function test_viewing_the_cart_as_a_guest_stores_nothing_until_an_item_is_added(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $client = User::factory()->create();
-        $cart = Cart::create(['user_id' => $client->id]);
-        $this->postJson('/api/carts', ['user_id' => $client->id])
-            ->assertUnprocessable()->assertJsonValidationErrors('user_id');
-        $this->postJson('/api/cart-items', ['cart_id' => $cart->id, 'product_id' => $this->product->id, 'quantity' => 1])
-            ->assertCreated();
-        $this->postJson('/api/cart-items', ['cart_id' => $cart->id, 'product_id' => $this->product->id, 'quantity' => 1])
-            ->assertUnprocessable()->assertJsonValidationErrors('product_id');
-        $otherCart = Cart::create(['guest_token' => 'another-cart']);
-        $otherItem = Cart_item::create(['cart_id' => $otherCart->id, 'product_id' => $this->product->id, 'quantity' => 1]);
-        $this->patchJson("/api/cart-items/{$otherItem->id}", ['cart_id' => $cart->id])
-            ->assertUnprocessable()->assertJsonValidationErrors('cart_id');
-        $this->patchJson("/api/carts/{$otherCart->id}", ['user_id' => $client->id])
-            ->assertUnprocessable()->assertJsonValidationErrors('user_id');
+        $this->getJson('/api/cart')->assertOk()
+            ->assertJsonPath('data.items', [])->assertJsonPath('data.item_count', 0)->assertJsonPath('data.total', '0.00');
+        $this->assertDatabaseCount('carts', 0);
+        $this->assertNull(session('cart_token'));
+
+        $this->postJson('/api/cart/items', ['product_id' => $this->product->id, 'quantity' => 2])->assertSuccessful();
+        $this->getJson('/api/cart')->assertOk()->assertJsonPath('data.item_count', 2);
+        $this->assertDatabaseCount('carts', 1);
+    }
+
+    public function test_prune_removes_only_guest_carts_unused_for_a_week(): void
+    {
+        $old = now()->subDays(8);
+        $account = Cart::create(['user_id' => User::factory()->create()->id]);
+        $stale = Cart::create(['guest_token' => 'stale']);
+        $active = Cart::create(['guest_token' => 'active']);
+        $recent = Cart::create(['guest_token' => 'recent']);
+        Cart::whereKey([$account->id, $stale->id, $active->id])->update(['created_at' => $old]);
+        Cart_item::create(['cart_id' => $stale->id, 'product_id' => $this->product->id, 'quantity' => 1]);
+        Cart_item::where('cart_id', $stale->id)->update(['updated_at' => $old]);
+        Cart_item::create(['cart_id' => $active->id, 'product_id' => $this->product->id, 'quantity' => 1]);
+
+        $this->artisan('carts:prune-guests')->assertSuccessful();
+
+        $this->assertSame([$account->id, $active->id, $recent->id], Cart::orderBy('id')->pluck('id')->all());
+        $this->assertDatabaseCount('cart_items', 1);
     }
 }

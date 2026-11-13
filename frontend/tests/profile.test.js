@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { updateProfile, updateAddress, deleteAddress } from "../src/api/http.js";
+import { updateProfile, updateAddress, deleteAddress } from "../src/requisicoes/perfil.js";
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => { globalThis.document = { cookie: "XSRF-TOKEN=token" }; });

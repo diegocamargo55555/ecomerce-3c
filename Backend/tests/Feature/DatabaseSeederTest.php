@@ -33,6 +33,9 @@ class DatabaseSeederTest extends TestCase
         }
         $this->assertEqualsCanonicalizing(['pendente', 'pago', 'enviado', 'entregue', 'cancelado'], Order::pluck('status')->all());
 
+        foreach (DB::table('categories')->pluck('image_url') as $url) {
+            $this->assertFileExists(public_path($url));
+        }
         foreach (Product::all() as $product) {
             $this->assertFileExists(public_path(parse_url($product->image_url, PHP_URL_PATH)));
         }
@@ -56,12 +59,11 @@ class DatabaseSeederTest extends TestCase
         }
     }
 
-    public function test_repeating_seeders_preserves_existing_data_and_soft_deleted_products(): void
+    public function test_repeating_seeders_preserves_existing_data(): void
     {
         $this->seed(DatabaseSeeder::class);
         $product = Product::first();
         $product->update(['price' => '123.45', 'stock' => 7]);
-        Product::skip(1)->first()->delete();
         $user = User::where('email', 'test@example.com')->first();
         $user->update(['name' => 'Nome preservado', 'password' => 'outra-senha']);
         $password = $user->password;
@@ -81,7 +83,7 @@ class DatabaseSeederTest extends TestCase
         $this->assertSame('Nome preservado', $user->fresh()->name);
         $this->assertSame($password, $user->fresh()->password);
         $this->assertSame($guestToken, DB::table('carts')->whereNull('user_id')->value('guest_token'));
-        $this->assertSame(29, Product::count());
+        $this->assertSame(30, Product::count());
     }
 
     private function cents(string $value): int
@@ -90,14 +92,4 @@ class DatabaseSeederTest extends TestCase
 
         return (int) $whole * 100 + (int) str_pad($fraction, 2, '0');
     }
-    public function test_repeating_seeders_does_not_restore_deleted_addresses(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        $address = \App\Models\Address::first();
-        $address->delete();
-        $this->seed(DatabaseSeeder::class);
-        $this->assertDatabaseCount('addresses', 3);
-        $this->assertSoftDeleted('addresses', ['id' => $address->id]);
-    }
-
 }

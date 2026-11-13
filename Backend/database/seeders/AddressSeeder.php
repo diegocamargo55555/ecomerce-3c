@@ -20,7 +20,7 @@ class AddressSeeder extends Seeder
         ];
 
         foreach ($addresses as $address) {
-            Address::withTrashed()->firstOrCreate(['users_id' => $userIds[$address['user']]], [
+            Address::firstOrCreate(['users_id' => $userIds[$address['user']]], [
                 'users_id' => $userIds[$address['user']],
                 'recipient_name' => $address['recipient_name'],
                 'zip_code' => $address['zip_code'],

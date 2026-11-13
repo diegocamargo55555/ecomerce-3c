@@ -30,14 +30,3 @@ class AddressResource extends JsonResource
     }
 }
 
-/*
-            'recipient_name' => ['required', 'string', 'max:255'],
-            'zip_code' => ['required', 'string', 'max:255'],
-            'street' => ['required', 'string', 'max:255'],
-            'number' => ['required', 'string', 'max:255'],
-            'complement' => ['required', 'string', 'max:255'],
-            'neighborhood' => ['required', 'string', 'max:255'],
-            'city' => ['required', 'string', 'max:255'],
-            'state' => ['required', 'string', 'max:255'],
-
-*/

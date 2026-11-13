@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { api, ApiError, listResource, resourceData } from "../src/api/http.js";
+import { api, ApiError, resourceData } from "../src/requisicoes/http.js";
+import { listResource } from "../src/requisicoes/recursos.js";
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => {

@@ -96,7 +96,6 @@ class CheckoutTest extends TestCase
         $this->assertSame(2, $this->product->fresh()->stock);
         $this->assertDatabaseCount('cart_items', 0);
         $this->product->update(['name' => 'Novo nome', 'price' => '99.99']);
-        $this->product->delete();
         $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.items.0.product_name', 'Marine')
             ->assertJsonPath('data.items.0.unit_price', '0.20')->assertJsonPath('data.total', '20.60');
     }
@@ -137,8 +136,6 @@ class CheckoutTest extends TestCase
                 ->assertUnprocessable()->assertJsonValidationErrors('cart');
             $this->assertStringContainsString($other->name, $response->json('errors.cart.0'));
         }
-        $other->delete();
-        $this->postJson('/api/orders', ['address_id' => $this->address->id])->assertUnprocessable();
         $this->assertDatabaseCount('orders', 0);
         $this->assertDatabaseCount('order_items', 0);
         $this->assertDatabaseCount('payments', 0);
@@ -226,9 +223,12 @@ class CheckoutTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']));
         $this->patchJson("/api/orders/{$id}", ['status' => 'pago'])->assertMethodNotAllowed();
         $this->deleteJson("/api/orders/{$id}")->assertMethodNotAllowed();
-        $this->postJson('/api/payments', ['order_id' => $id, 'status' => 'pago', 'amount' => '0.01'])->assertUnprocessable();
-        $this->patchJson('/api/payments/'.Payment::first()->id, ['amount' => '0.01'])->assertUnprocessable();
-        $this->patchJson('/api/order-items/'.Order::first()->items()->first()->id, ['unit_price' => '0.01'])->assertUnprocessable();
+        $this->postJson('/api/payments', ['order_id' => $id, 'status' => 'pago', 'amount' => '0.01'])->assertMethodNotAllowed();
+        $this->patchJson('/api/payments/'.Payment::first()->id, ['status' => 'pago'])->assertMethodNotAllowed();
+        $this->postJson('/api/order-items', ['order_id' => $id, 'product_id' => $this->product->id, 'quantity' => 1])->assertMethodNotAllowed();
+        $this->patchJson('/api/order-items/'.Order::first()->items()->first()->id, ['quantity' => 1])->assertMethodNotAllowed();
+        $this->assertDatabaseHas('payments', ['order_id' => $id, 'status' => 'pendente', 'amount' => '20.30']);
+        $this->assertSame(2, $this->product->fresh()->stock);
     }
     public function test_my_orders_requires_login_and_returns_only_own_orders_in_newest_order(): void
     {
@@ -259,15 +259,13 @@ class CheckoutTest extends TestCase
         $this->postJson('/api/cart/items', ['product_id' => $other->id, 'quantity' => 1])->assertSuccessful();
         $id = $this->checkout();
         $this->product->update(['is_active' => false, 'price' => '99.99']);
-        $other->delete();
         $this->postJson("/api/orders/{$id}/cancel", ['quantity' => 999, 'total' => '0.01', 'status' => 'pago'])
             ->assertOk()->assertJsonPath('data.status', 'cancelado')->assertJsonPath('data.total', '20.30')
             ->assertJsonPath('data.payments.0.status', 'cancelado')->assertJsonPath('data.payments.0.paid_at', null)
             ->assertJsonPath('data.items.0.unit_price', '0.10')->assertJsonCount(2, 'data.items');
         $this->assertSame(5, $this->product->fresh()->stock);
         $this->assertFalse($this->product->fresh()->is_active);
-        $this->assertSame(5, Product::withTrashed()->find($other->id)->stock);
-        $this->assertTrue(Product::withTrashed()->find($other->id)->trashed());
+        $this->assertSame(5, $other->fresh()->stock);
         $this->postJson("/api/orders/{$id}/cancel")->assertConflict();
         $this->postJson("/api/orders/{$id}/pay")->assertConflict();
         $this->assertSame(5, $this->product->fresh()->stock);
@@ -342,55 +340,25 @@ class CheckoutTest extends TestCase
         $this->patchJson($url, ['street' => 'Rua B', 'complement' => null])->assertOk()
             ->assertJsonPath('data.id', $this->address->id)->assertJsonPath('data.street', 'Rua B');
         $this->deleteJson($url)->assertNoContent();
-        $this->assertSoftDeleted('addresses', ['id' => $this->address->id]);
+        $this->assertDatabaseMissing('addresses', ['id' => $this->address->id]);
         $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(0, 'data');
         $this->patchJson($url, ['street' => 'Rua C'])->assertNotFound();
         $this->deleteJson($url)->assertNotFound();
     }
 
-    public function test_address_changes_and_deletes_preserve_orders_and_checkout_uses_new_version(): void
+    public function test_product_delete_clears_carts_but_is_refused_once_ordered(): void
     {
         $this->fillCart(1);
-        $first = $this->checkout();
-        $oldId = $this->address->id;
-        $newId = $this->patchJson("/api/my/addresses/{$oldId}", ['street' => 'Rua B'])->assertOk()
-            ->assertJsonPath('data.street', 'Rua B')->json('data.id');
-        $this->assertNotSame($oldId, $newId);
-        $this->assertSoftDeleted('addresses', ['id' => $oldId, 'street' => 'Rua A']);
-        $this->getJson("/api/orders/{$first}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
-        $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $newId);
-        $this->fillCart(1);
-        $this->postJson('/api/orders', ['address_id' => $oldId])->assertNotFound();
-        $second = $this->postJson('/api/orders', ['address_id' => $newId])->assertCreated()->json('data.id');
-        $this->deleteJson("/api/my/addresses/{$newId}")->assertNoContent();
-        $this->getJson("/api/orders/{$second}")->assertOk()->assertJsonPath('data.address.street', 'Rua B');
-        $this->getJson('/api/my/addresses')->assertOk()->assertJsonCount(0, 'data');
-    }
-
-    public function test_admin_address_edits_also_preserve_order_history(): void
-    {
-        $this->fillCart(1);
-        $id = $this->checkout();
+        $this->checkout();
+        $other = $this->product->replicate();
+        $other->save();
+        $this->postJson('/api/cart/items', ['product_id' => $other->id, 'quantity' => 1])->assertSuccessful();
         $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $newId = $this->patchJson("/api/addresses/{$this->address->id}", ['street' => 'Rua admin'])
-            ->assertOk()->json('data.id');
-        $this->deleteJson("/api/addresses/{$newId}")->assertNoContent();
-        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
-    }
-
-    public function test_address_versioning_rolls_back_if_archiving_fails(): void
-    {
-        $this->fillCart(1);
-        $id = $this->checkout();
-        Event::listen('eloquent.deleting: '.Address::class, fn () => throw new \RuntimeException('Falha simulada'));
-        try {
-            $this->patchJson("/api/my/addresses/{$this->address->id}", ['street' => 'Rua B'])->assertServerError();
-        } finally {
-            Event::forget('eloquent.deleting: '.Address::class);
-        }
-        $this->assertDatabaseCount('addresses', 1);
-        $this->assertSame('Rua A', $this->address->fresh()->street);
-        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.address.street', 'Rua A');
+        $this->deleteJson("/api/products/{$other->id}")->assertNoContent();
+        $this->assertDatabaseMissing('products', ['id' => $other->id]);
+        $this->assertDatabaseCount('cart_items', 0);
+        $this->deleteJson("/api/products/{$this->product->id}")->assertConflict();
+        $this->assertDatabaseHas('products', ['id' => $this->product->id]);
     }
 
     public function test_order_status_changes_require_admin_even_for_the_owner(): void
@@ -401,6 +369,19 @@ class CheckoutTest extends TestCase
         $this->patchJson("/api/admin/orders/{$id}/status", ['status' => 'enviado'])->assertForbidden();
         $this->actingAs(User::factory()->create())->patchJson("/api/admin/orders/{$id}/status", ['status' => 'enviado'])->assertForbidden();
         $this->assertDatabaseHas('orders', ['id' => $id, 'status' => 'pendente']);
+    }
+
+    public function test_shipping_is_free_only_when_subtotal_is_above_100(): void
+    {
+        $this->product->update(['price' => '100.00']);
+        $this->fillCart(1);
+        $this->getJson('/api/checkout')->assertOk()
+            ->assertJsonPath('data.shipping_cost', '20.00')->assertJsonPath('data.total', '120.00');
+        $this->product->update(['price' => '100.01']);
+        $this->getJson('/api/checkout')->assertOk()
+            ->assertJsonPath('data.shipping_cost', '0.00')->assertJsonPath('data.total', '100.01');
+        $id = $this->checkout();
+        $this->assertDatabaseHas('orders', ['id' => $id, 'shipping_cost' => '0.00', 'total' => '100.01']);
     }
 
     public function test_admin_can_ship_then_deliver_without_modifying_stock_payment_or_order_values(): void
@@ -462,191 +443,4 @@ class CheckoutTest extends TestCase
         $this->patchJson('/api/admin/orders/999999/status', ['status' => 'enviado'])->assertNotFound();
         $this->assertDatabaseHas('orders', ['id' => $id, 'status' => 'pendente']);
     }
-
-    public function test_financial_writes_require_an_admin_before_validating_input(): void
-    {
-        $routes = [
-            ['POST', '/api/order-items'], ['PATCH', '/api/order-items/1'],
-            ['POST', '/api/payments'], ['PATCH', '/api/payments/1'],
-        ];
-        foreach ($routes as [$method, $url]) {
-            $this->json($method, $url)->assertUnauthorized();
-        }
-        $this->actingAs($this->user);
-        foreach ($routes as [$method, $url]) {
-            $this->json($method, $url)->assertForbidden();
-        }
-    }
-
-    public function test_admin_can_add_items_using_catalog_prices_and_update_stock_order_and_payment(): void
-    {
-        $this->fillCart();
-        $id = $this->checkout();
-        $other = $this->product->replicate();
-        $other->fill(['name' => 'Tinta', 'price' => '0.25', 'stock' => 5])->save();
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $this->postJson('/api/order-items', [
-            'order_id' => $id, 'product_id' => $other->id, 'quantity' => 2,
-            'product_name' => 'Nome falso', 'unit_price' => '0.01', 'subtotal' => '0.01',
-        ])->assertCreated()->assertJsonPath('data.product_name', 'Tinta')
-            ->assertJsonPath('data.unit_price', '0.25')->assertJsonPath('data.subtotal', '0.50');
-        $this->assertSame(3, $other->fresh()->stock);
-        $this->assertSame(2, $this->product->fresh()->stock);
-        $this->getJson("/api/orders/{$id}")->assertOk()->assertJsonPath('data.subtotal', '0.80')
-            ->assertJsonPath('data.shipping_cost', '20.00')->assertJsonPath('data.total', '20.80')
-            ->assertJsonPath('data.payments.0.amount', '20.80')->assertJsonPath('data.status', 'pendente');
-    }
-
-    public function test_admin_quantity_changes_keep_frozen_prices_and_return_or_reserve_only_the_difference(): void
-    {
-        $this->fillCart();
-        $id = $this->checkout();
-        $item = Order::findOrFail($id)->items()->firstOrFail();
-        $this->product->update(['price' => '99.99', 'name' => 'Novo nome']);
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $this->patchJson("/api/order-items/{$item->id}", [
-            'quantity' => 4, 'order_id' => 999, 'product_id' => 999,
-            'product_name' => 'Falso', 'unit_price' => '0.01', 'subtotal' => '0.01',
-        ])->assertOk()->assertJsonPath('data.order_id', $id)->assertJsonPath('data.product_id', $this->product->id)
-            ->assertJsonPath('data.product_name', 'Marine')->assertJsonPath('data.unit_price', '0.10')
-            ->assertJsonPath('data.subtotal', '0.40');
-        $this->assertSame(1, $this->product->fresh()->stock);
-        $this->assertDatabaseHas('orders', ['id' => $id, 'total' => '20.40']);
-        $this->assertDatabaseHas('payments', ['order_id' => $id, 'amount' => '20.40']);
-        $this->patchJson("/api/order-items/{$item->id}", ['quantity' => 1])->assertOk()->assertJsonPath('data.subtotal', '0.10');
-        $this->assertSame(4, $this->product->fresh()->stock);
-        $this->assertDatabaseHas('orders', ['id' => $id, 'total' => '20.10']);
-        $this->assertDatabaseHas('payments', ['order_id' => $id, 'amount' => '20.10']);
-        foreach ([0, -1, 1.5, 6, 2147483648] as $quantity) {
-            $this->patchJson("/api/order-items/{$item->id}", ['quantity' => $quantity])->assertUnprocessable();
-        }
-        $this->assertSame(4, $this->product->fresh()->stock);
-    }
-
-    public function test_unavailable_products_allow_reducing_reserved_items_but_not_increasing_or_adding_them(): void
-    {
-        $this->fillCart();
-        $id = $this->checkout();
-        $item = Order::findOrFail($id)->items()->firstOrFail();
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $this->postJson('/api/order-items', ['order_id' => $id, 'product_id' => $this->product->id, 'quantity' => 3])
-            ->assertUnprocessable();
-        $this->product->update(['is_active' => false]);
-        $this->postJson('/api/order-items', ['order_id' => $id, 'product_id' => $this->product->id, 'quantity' => 1])
-            ->assertUnprocessable();
-        $this->product->delete();
-        $this->patchJson("/api/order-items/{$item->id}", ['quantity' => 4])->assertUnprocessable();
-        $this->patchJson("/api/order-items/{$item->id}", ['quantity' => 2])->assertOk();
-        $this->assertSame(3, Product::withTrashed()->findOrFail($this->product->id)->stock);
-        $this->postJson("/api/orders/{$id}/cancel")->assertOk();
-        $this->assertSame(5, Product::withTrashed()->findOrFail($this->product->id)->stock);
-    }
-
-    public function test_finalized_orders_and_processed_payments_block_item_writes(): void
-    {
-        $this->fillCart();
-        $id = $this->checkout();
-        $item = Order::findOrFail($id)->items()->firstOrFail();
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        foreach (['pago', 'enviado', 'entregue', 'cancelado'] as $status) {
-            Order::findOrFail($id)->update(['status' => $status]);
-            $this->patchJson("/api/order-items/{$item->id}", ['quantity' => 1])->assertConflict();
-            $this->postJson('/api/order-items', ['order_id' => $id, 'product_id' => $this->product->id, 'quantity' => 1])
-                ->assertConflict();
-        }
-        Order::findOrFail($id)->update(['status' => 'pendente']);
-        Payment::firstOrFail()->update(['status' => 'pago']);
-        $this->patchJson("/api/order-items/{$item->id}", ['quantity' => 1])->assertConflict();
-        $this->assertSame(2, $this->product->fresh()->stock);
-        $this->assertSame(3, $item->fresh()->quantity);
-    }
-
-    public function test_admin_item_writes_validate_input_and_roll_back_overflow_and_late_failures(): void
-    {
-        $this->fillCart();
-        $id = $this->checkout();
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $this->postJson('/api/order-items', [])->assertUnprocessable()->assertJsonValidationErrors(['order_id', 'product_id', 'quantity']);
-        $this->patchJson('/api/order-items/999999', ['quantity' => 1])->assertNotFound();
-        $other = $this->product->replicate();
-        $other->fill(['price' => '99999999.99', 'stock' => 5])->save();
-        $this->postJson('/api/order-items', ['order_id' => $id, 'product_id' => $other->id, 'quantity' => 2])
-            ->assertUnprocessable()->assertJsonValidationErrors('quantity');
-        $other->update(['price' => '0.25']);
-        Event::listen('eloquent.created: '.\App\Models\OrderItem::class, fn () => throw new \RuntimeException('Falha simulada'));
-        try {
-            $this->postJson('/api/order-items', ['order_id' => $id, 'product_id' => $other->id, 'quantity' => 1])->assertServerError();
-        } finally {
-            Event::forget('eloquent.created: '.\App\Models\OrderItem::class);
-        }
-        $this->assertSame(5, $other->fresh()->stock);
-        $this->assertDatabaseCount('order_items', 1);
-        $this->assertDatabaseHas('orders', ['id' => $id, 'subtotal' => '0.30', 'total' => '20.30']);
-        $this->assertDatabaseHas('payments', ['order_id' => $id, 'status' => 'pendente', 'amount' => '20.30']);
-    }
-
-    public function test_admin_can_create_only_one_pending_payment_at_the_order_total(): void
-    {
-        $this->fillCart();
-        $id = $this->checkout();
-        Payment::firstOrFail()->delete();
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $this->postJson('/api/payments', [])->assertUnprocessable()->assertJsonValidationErrors('order_id');
-        $this->postJson('/api/payments', ['order_id' => $id, 'status' => 'pago'])->assertUnprocessable();
-        $this->postJson('/api/payments', ['order_id' => $id, 'amount' => '0.01', 'paid_at' => '2000-01-01'])
-            ->assertCreated()->assertJsonPath('data.status', 'pendente')->assertJsonPath('data.amount', '20.30')
-            ->assertJsonPath('data.paid_at', null);
-        $this->postJson('/api/payments', ['order_id' => $id])->assertConflict();
-        $this->assertDatabaseCount('payments', 1);
-        $this->assertSame(2, $this->product->fresh()->stock);
-    }
-
-    public function test_admin_payment_confirmation_uses_server_values_and_cannot_be_repeated_or_cancelled(): void
-    {
-        $this->fillCart();
-        $id = $this->checkout();
-        $payment = Payment::firstOrFail();
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $this->patchJson("/api/payments/{$payment->id}", [])->assertUnprocessable()->assertJsonValidationErrors('status');
-        $this->patchJson("/api/payments/{$payment->id}", ['status' => 'invalido'])->assertUnprocessable();
-        $this->patchJson("/api/payments/{$payment->id}", ['status' => 'pendente'])->assertConflict();
-        $this->patchJson('/api/payments/999999', ['status' => 'pago'])->assertNotFound();
-        $this->patchJson("/api/payments/{$payment->id}", [
-            'status' => 'pago', 'order_id' => 999, 'amount' => '0.01', 'paid_at' => '2000-01-01',
-        ])->assertOk()->assertJsonPath('data.order_id', $id)->assertJsonPath('data.amount', '20.30')
-            ->assertJsonPath('data.status', 'pago');
-        $paidAt = $payment->fresh()->paid_at;
-        $this->assertTrue($paidAt->isToday());
-        $this->assertDatabaseHas('orders', ['id' => $id, 'status' => 'pago']);
-        foreach (['pago', 'cancelado', 'pendente'] as $status) {
-            $this->patchJson("/api/payments/{$payment->id}", ['status' => $status])->assertConflict();
-        }
-        $this->assertTrue($paidAt->equalTo($payment->fresh()->paid_at));
-        $this->assertSame(2, $this->product->fresh()->stock);
-    }
-
-    public function test_admin_payment_cancellation_returns_updated_quantities_once_and_rolls_back_on_failure(): void
-    {
-        $this->fillCart();
-        $id = $this->checkout();
-        $payment = Payment::firstOrFail();
-        $item = Order::findOrFail($id)->items()->firstOrFail();
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
-        $this->patchJson("/api/order-items/{$item->id}", ['quantity' => 4])->assertOk();
-        Event::listen('eloquent.updating: '.Order::class, fn () => throw new \RuntimeException('Falha simulada'));
-        try {
-            $this->patchJson("/api/payments/{$payment->id}", ['status' => 'cancelado'])->assertServerError();
-        } finally {
-            Event::forget('eloquent.updating: '.Order::class);
-        }
-        $this->assertSame(1, $this->product->fresh()->stock);
-        $this->assertDatabaseHas('payments', ['id' => $payment->id, 'status' => 'pendente', 'amount' => '20.40']);
-        $this->patchJson("/api/payments/{$payment->id}", ['status' => 'cancelado'])->assertOk()
-            ->assertJsonPath('data.status', 'cancelado')->assertJsonPath('data.amount', '20.40');
-        $this->assertSame(5, $this->product->fresh()->stock);
-        $this->assertDatabaseHas('orders', ['id' => $id, 'status' => 'cancelado', 'total' => '20.40']);
-        $this->patchJson("/api/payments/{$payment->id}", ['status' => 'cancelado'])->assertConflict();
-        $this->assertSame(5, $this->product->fresh()->stock);
-    }
-
 }

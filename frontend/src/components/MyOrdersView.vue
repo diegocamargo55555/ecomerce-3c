@@ -1,30 +1,20 @@
 <script setup>
-import { onMounted, ref } from "vue";
-import { getMyOrders } from "../api/http.js";
-import { currency, date, resources } from "../resources.js";
+import { currency, date } from "../manipulacao/formatacao.js";
 import Icon from "./Icon.vue";
+import { useMyOrders } from "../manipulacao/useMyOrders.js";
 
-const orders = ref([]);
-const loading = ref(true);
-const error = ref("");
-const statusNames = Object.fromEntries(resources.orders.fields.find(field => field.key === "status").options);
-async function load() {
-  loading.value = true;
-  error.value = "";
-  try {
-    orders.value = await getMyOrders();
-  } catch (failure) {
-    error.value = failure.message;
-  } finally {
-    loading.value = false;
-  }
-}
-onMounted(load);
+const {
+  orders,
+  loading,
+  error,
+  statusNames,
+  load,
+} = useMyOrders();
 </script>
 
 <template>
   <section class="my-orders" :aria-busy="loading">
-    <header><span class="eyebrow">3C COMMERCE / SUA CONTA</span><h1>Meus pedidos</h1><p class="muted">Suas compras, das mais recentes às mais antigas.</p></header>
+    <header><span class="eyebrow">40K / SUA CONTA</span><h1>Meus pedidos</h1><p class="muted">Suas compras, das mais recentes às mais antigas.</p></header>
     <div v-if="loading" class="panel empty-state" role="status"><span class="spinner" /> Carregando pedidos…</div>
     <div v-else-if="error" class="panel empty-state" role="alert"><Icon name="alert" :size="32" /><p>{{ error }}</p><button class="button secondary" @click="load">Tentar novamente</button></div>
     <div v-else-if="!orders.length" class="panel empty-state"><Icon name="orders" :size="32" /><h2>Você ainda não tem pedidos</h2><a href="#products" class="button primary">Explorar produtos</a></div>

@@ -16,13 +16,14 @@ use Illuminate\Validation\ValidationException;
 class OrderService
 {
     private const SHIPPING_COST = '20.00';
+    private const FREE_SHIPPING_ABOVE = '100.00';
 
     public function __construct(private CartService $cartService) {}
 
     public function review(Request $request): array
     {
         $cart = $this->cartService->current($request);
-        $cart->load(['items.product' => fn ($query) => $query->withTrashed()]);
+        $cart->load('items.product');
 
         return $this->quote($cart);
     }
@@ -36,8 +37,7 @@ class OrderService
         $items = [];
         foreach ($cart->items as $item) {
             $product = $item->product;
-            if (! $product || $product->trashed() || ! $product->is_active
-                || $item->quantity < 1 || $item->quantity > $product->stock) {
+            if (! $product || ! $product->is_active|| $item->quantity < 1 || $item->quantity > $product->stock) {
                 $name = $product?->name ?? "Produto #{$item->product_id}";
                 throw ValidationException::withMessages(['cart' => ["{$name}: produto indisponível ou estoque insuficiente."]]);
             }
@@ -48,12 +48,13 @@ class OrderService
                 'unit_price' => $product->price, 'quantity' => $item->quantity, 'subtotal' => $lineTotal,
             ];
         }
-        $total = bcadd($subtotal, self::SHIPPING_COST, 2);
+        $shipping = bccomp($subtotal, self::FREE_SHIPPING_ABOVE, 2) > 0 ? '0.00' : self::SHIPPING_COST;
+        $total = bcadd($subtotal, $shipping, 2);
         if (bccomp($total, '99999999.99', 2) > 0) {
             throw ValidationException::withMessages(['cart' => ['O total ultrapassa o limite de R$ 99.999.999,99 por pedido.']]);
         }
 
-        return ['items' => $items, 'subtotal' => $subtotal, 'shipping_cost' => self::SHIPPING_COST, 'total' => $total];
+        return ['items' => $items, 'subtotal' => $subtotal, 'shipping_cost' => $shipping, 'total' => $total];
     }
 
     public function checkout(Request $request, int $addressId): Order
@@ -62,8 +63,7 @@ class OrderService
             $cart = $this->cartService->current($request);
             $address = Address::where('users_id', $request->user()->id)->lockForUpdate()->findOrFail($addressId);
             $items = $cart->items()->orderBy('product_id')->lockForUpdate()->get();
-            $products = Product::withTrashed()->whereIn('id', $items->pluck('product_id'))
-                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $products = Product::whereIn('id', $items->pluck('product_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             foreach ($items as $item) {
                 $item->setRelation('product', $products->get($item->product_id));
             }
@@ -106,7 +106,7 @@ class OrderService
             $payment = Payment::where('order_id', $id)->lockForUpdate()->firstOrNew();
             abort_if($payment->exists && $payment->status !== 'pendente', 409, 'O pagamento deste pedido já foi processado.');
             $items = $order->items()->orderBy('product_id')->lockForUpdate()->get();
-            $products = Product::withTrashed()->whereIn('id', $items->pluck('product_id'))
+            $products = Product::whereIn('id', $items->pluck('product_id'))
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             foreach ($items as $item) {
                 $products->get($item->product_id)->increment('stock', $item->quantity);

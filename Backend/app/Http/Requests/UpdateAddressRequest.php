@@ -23,8 +23,7 @@ class UpdateAddressRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'users_id' => $this->routeIs('addresses.update')
-                ? ['sometimes', 'required', 'integer', 'exists:users,id'] : ['missing'],
+            'users_id' => ['missing'],
             'recipient_name' => ['sometimes', 'required', 'string', 'max:255'],
             'zip_code' => ['sometimes', 'required', 'string', 'max:255'],
             'street' => ['sometimes', 'required', 'string', 'max:255'],

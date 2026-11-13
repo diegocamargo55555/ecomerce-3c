@@ -1,47 +1,25 @@
 <script setup>
-import { reactive, ref, watch } from "vue";
-import { removeCartItem, updateCartItem } from "../api/http.js";
-import { currency } from "../resources.js";
+import { currency } from "../manipulacao/formatacao.js";
 import Icon from "./Icon.vue";
+import { useCart } from "../manipulacao/useCart.js";
 
 const props = defineProps({ cart: Object, loading: Boolean, error: String, user: Object });
 const emit = defineEmits(["refresh", "updated"]);
-const quantities = reactive({});
-const busy = ref(false);
-const itemError = ref("");
-const errorItem = ref(null);
-const notice = ref("");
-const failedImages = ref(new Set());
-watch(() => props.cart, (cart) => {
-  Object.keys(quantities).forEach((key) => delete quantities[key]);
-  for (const item of cart?.items || []) quantities[item.id] = item.quantity;
-}, { immediate: true });
-
-async function change(item, remove = false) {
-  if (busy.value) return;
-  busy.value = true;
-  itemError.value = "";
-  errorItem.value = item.id;
-  notice.value = "";
-  try {
-    const cart = remove
-      ? await removeCartItem(item.id)
-      : await updateCartItem(item.id, quantities[item.id]);
-    emit("updated", cart);
-    notice.value = remove || quantities[item.id] === 0 ? "Produto removido do carrinho." : "Quantidade atualizada.";
-  } catch (failure) {
-    itemError.value = failure.errors?.quantity?.[0] || failure.message;
-    emit("refresh");
-  } finally {
-    busy.value = false;
-  }
-}
+const {
+  quantities,
+  busy,
+  itemError,
+  errorItem,
+  notice,
+  failedImages,
+  change,
+} = useCart(props, emit);
 </script>
 
 <template>
   <section class="cart-page" :aria-busy="loading || busy">
     <header class="cart-heading">
-      <div><span class="eyebrow">3C COMMERCE / SUAS ESCOLHAS</span><h1>Meu carrinho<span>.</span></h1></div>
+      <div><span class="eyebrow">40K / SUAS ESCOLHAS</span><h1>Meu carrinho<span>.</span></h1></div>
       <a href="#products" class="text-button"><Icon name="left" :size="16" /> Continuar comprando</a>
     </header>
     <div v-if="error" class="alert" role="alert">
@@ -108,15 +86,15 @@ async function change(item, remove = false) {
 .cart-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
 .cart-items { display: grid; gap: 16px; padding: 0; margin: 0; list-style: none; }
 .cart-item { display: grid; grid-template-columns: 100px minmax(0, 1fr) auto; gap: 20px; padding: 22px; align-items: start; }
-.cart-image { display: grid; place-items: center; height: 100px; padding: 8px; border-radius: 8px; background: var(--soft); color: var(--muted); }
+.cart-image { display: grid; place-items: center; height: 100px; padding: 8px; border-radius: 2px; background: var(--soft); color: var(--muted); }
 .cart-image img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .cart-item-body h2 { font-size: 15px; overflow-wrap: anywhere; }
 .cart-unit-price { margin: 6px 0 14px; font-size: 12px; }
-.cart-unavailable { display: flex; align-items: center; gap: 6px; color: var(--danger); font-size: 12px; margin-bottom: 14px; }
+.cart-unavailable { display: flex; align-items: center; gap: 6px; color: var(--danger-text); font-size: 12px; margin-bottom: 14px; }
 .cart-item-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .cart-item-actions label { font-size: 12px; }
-.cart-item-actions input { width: 68px; padding: 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
-.cart-remove { color: var(--danger); }
+.cart-item-actions input { width: 68px; padding: 9px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface); }
+.cart-remove { color: var(--danger-text); }
 .cart-subtotal { display: grid; gap: 5px; text-align: right; }
 .cart-subtotal strong { white-space: nowrap; font-size: 17px; }
 .cart-summary { padding: 24px; display: grid; gap: 18px; }

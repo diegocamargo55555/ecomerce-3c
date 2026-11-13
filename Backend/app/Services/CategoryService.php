@@ -35,9 +35,7 @@ class CategoryService
     {
         DB::transaction(function () use ($id) {
             $category = Category::lockForUpdate()->findOrFail($id);
-            // Produtos excluídos logicamente continuam no banco e nos pedidos antigos,
-            // então também impedem a exclusão.
-            $products = $category->products()->withTrashed()->count();
+            $products = $category->products()->count();
             abort_if(
                 $products > 0,
                 409,

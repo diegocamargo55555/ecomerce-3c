@@ -1,6 +1,8 @@
 <script setup>
 defineProps({ name: String, size: { type: [String, Number], default: 20 } });
 const paths = {
+  // logo: omega invertido, desenho próprio (letra grega), não o emblema oficial
+  omega: "M3 4h6v3a7.5 7.5 0 1 0 6 0V4h6",
   bag: "M6 7h12l1 14H5L6 7Z M9 7V5a3 3 0 0 1 6 0v2",
   grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
   box: "m12 3 9 5-9 5-9-5 9-5Z M3 8v9l9 5 9-5V8 M12 13v9 M7.5 5.5l9 5",
@@ -26,7 +28,6 @@ const paths = {
   menu: "M4 6h16 M4 12h16 M4 18h16",
   check: "m5 12 4 4L19 6",
   alert: "M12 9v4 M12 17h.01 M10.3 3 1 19h22L13.7 3a2 2 0 0 0-3.4 0Z",
-  download: "M12 3v12 m-5-5 5 5 5-5 M4 16v5h16v-5",
   sort: "M8 3v18 m-4-4 4 4 4-4 M16 21V3 m-4 4 4-4 4 4",
   eye: "M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
   clock: "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z M12 6v6l4 2",

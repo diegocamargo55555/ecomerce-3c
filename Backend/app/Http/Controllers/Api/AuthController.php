@@ -18,10 +18,7 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request)
     {
-        $result = $this->authService->register(
-            $request->validated(),
-            $request
-        );
+        $result = $this->authService->register($request->validated(),$request);
 
         return (new UserResource($result['user']))
             ->additional(['cart_warnings' => $result['warnings']])
@@ -32,10 +29,7 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
-        $result = $this->authService->login(
-            $request->validated(),
-            $request
-        );
+        $result = $this->authService->login($request->validated(),$request);
 
         return (new UserResource($result['user']))
             ->additional(['cart_warnings' => $result['warnings']])

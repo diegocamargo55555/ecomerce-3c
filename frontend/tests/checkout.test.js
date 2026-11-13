@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { createAddress, createOrder, getAddresses, getCheckout, getOrder, payOrder, getMyOrders, cancelOrder, updateOrderStatus } from "../src/api/http.js";
+import { createAddress, getAddresses } from "../src/requisicoes/perfil.js";
+import { createOrder, getCheckout } from "../src/requisicoes/checkout.js";
+import { getOrder, payOrder, getMyOrders, cancelOrder, updateOrderStatus } from "../src/requisicoes/pedidos.js";
 
 const originalFetch = globalThis.fetch;
 beforeEach(() => { globalThis.document = { cookie: "XSRF-TOKEN=token" }; });

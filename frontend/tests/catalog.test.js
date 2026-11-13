@@ -1,6 +1,9 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { ApiError, getProduct, addToCart, listCatalog, listResource } from "../src/api/http.js";
+import { ApiError } from "../src/requisicoes/http.js";
+import { getProduct, listCatalog } from "../src/requisicoes/produtos.js";
+import { addToCart } from "../src/requisicoes/carrinho.js";
+import { listResource } from "../src/requisicoes/recursos.js";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });

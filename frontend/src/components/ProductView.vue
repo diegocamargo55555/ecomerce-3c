@@ -1,65 +1,24 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { addToCart, getProduct } from "../api/http.js";
-import { currency } from "../resources.js";
+import { currency } from "../manipulacao/formatacao.js";
 import Icon from "./Icon.vue";
+import { useProduct } from "../manipulacao/useProduct.js";
 
 const props = defineProps({ productId: String });
 const emit = defineEmits(["cart-updated"]);
-const product = ref(null);
-const loading = ref(true);
-const error = ref("");
-const notFound = ref(false);
-const failedImage = ref(false);
-const quantity = ref(1);
-const saving = ref(false);
-const cartError = ref("");
-const added = ref("");
-let active = true;
-onBeforeUnmount(() => { active = false; });
-const validQuantity = computed(() => Number.isInteger(quantity.value)
-  && quantity.value >= 1 && quantity.value <= product.value?.stock);
-
-async function load() {
-  loading.value = true;
-  error.value = "";
-  notFound.value = false;
-  failedImage.value = false;
-  cartError.value = "";
-  added.value = "";
-  quantity.value = 1;
-  try {
-    const result = await getProduct(props.productId);
-    if (!active) return;
-    product.value = result;
-    document.title = `${product.value.name} · 3C Commerce`;
-  } catch (failure) {
-    notFound.value = failure.status === 404;
-    error.value = failure.message;
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function add() {
-  if (!validQuantity.value || saving.value) return;
-  saving.value = true;
-  cartError.value = "";
-  added.value = "";
-  try {
-    const item = await addToCart(product.value.id, quantity.value);
-    emit("cart-updated");
-    added.value = `Adicionado ao carrinho. Você tem ${item.quantity} unidade(s) deste produto.`;
-  } catch (failure) {
-    cartError.value = failure.status === 404
-      ? "Este produto não está mais disponível. Atualize os detalhes."
-      : failure.errors?.quantity?.[0] || failure.message;
-  } finally {
-    saving.value = false;
-  }
-}
-
-watch(() => props.productId, load, { immediate: true });
+const {
+  product,
+  loading,
+  error,
+  notFound,
+  failedImage,
+  quantity,
+  saving,
+  cartError,
+  added,
+  validQuantity,
+  load,
+  add,
+} = useProduct(props, emit);
 </script>
 
 <template>
@@ -121,20 +80,20 @@ watch(() => props.productId, load, { immediate: true });
 <style scoped>
 .product-back { margin-bottom: 28px; }
 .product-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; align-items: start; }
-.product-photo { display: grid; place-items: center; aspect-ratio: 1; padding: 36px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.product-photo { display: grid; place-items: center; aspect-ratio: 1; padding: 36px; border: 1px solid var(--border); border-radius: 2px; background: var(--text); }
 .product-photo img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
 .product-placeholder { display: flex; flex-direction: column; align-items: center; gap: 14px; color: var(--muted); }
 .product-info { padding: 18px 0; min-width: 0; }
 .product-info h1 { overflow-wrap: anywhere; }
-.product-stock { display: flex; align-items: center; gap: 7px; color: #157447; margin-top: 18px; font-size: 13px; }
-.product-stock.unavailable { color: var(--danger); }
+.product-stock { display: flex; align-items: center; gap: 7px; color: #6fcf97; margin-top: 18px; font-size: 13px; }
+.product-stock.unavailable { color: var(--danger-text); }
 .product-price { display: block; font-size: 38px; font-weight: 750; letter-spacing: -1.3px; margin: 24px 0; }
 .product-purchase { display: grid; gap: 10px; }
 .product-purchase label { font-weight: 600; font-size: 13px; }
 .product-actions { display: flex; gap: 12px; }
-.product-actions input { width: 80px; min-height: 48px; padding: 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+.product-actions input { width: 80px; min-height: 48px; padding: 10px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface); }
 .product-actions .button { flex: 1; font-size: 14px; }
-.product-cart-error { display: grid; gap: 8px; color: var(--danger); }
+.product-cart-error { display: grid; gap: 8px; color: var(--danger-text); }
 .product-description { border-top: 1px solid var(--border); margin-top: 30px; padding-top: 24px; }
 .product-description p { color: var(--muted); white-space: pre-line; overflow-wrap: anywhere; margin-top: 12px; line-height: 1.8; }
 @media (max-width: 760px) {
